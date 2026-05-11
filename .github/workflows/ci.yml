@@ -1,0 +1,113 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: lexlink
+          POSTGRES_PASSWORD: lexlink
+          POSTGRES_DB: lexlink_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://lexlink:lexlink@localhost:5432/lexlink_test?schema=public
+        run: npx prisma migrate deploy
+
+      - name: Run linter
+        run: npm run lint
+
+      - name: Run tests with coverage
+        env:
+          NODE_ENV: test
+          PORT: 3000
+          DATABASE_URL: postgresql://lexlink:lexlink@localhost:5432/lexlink_test?schema=public
+          REDIS_URL: redis://localhost:6379/1
+          APP_SECRET_KEY: test-secret-key-32-chars-long!!
+          JWT_ALGORITHM: HS256
+          ACCESS_TOKEN_EXPIRE_MINUTES: 60
+          REFRESH_TOKEN_EXPIRE_DAYS: 30
+          OTP_LENGTH: 6
+          OTP_TTL_MINUTES: 15
+          OTP_MAX_ATTEMPTS: 3
+          OTP_RESEND_COOLDOWN_SECONDS: 60
+          RATE_LIMIT_SUBMIT_PER_HOUR: 5
+          RATE_LIMIT_LOGIN_PER_MINUTE: 10
+          RATE_LIMIT_API_PER_MINUTE: 100
+          SMTP_HOST: localhost
+          SMTP_PORT: 587
+          SMTP_USER: ""
+          SMTP_PASSWORD: ""
+          EMAIL_FROM: "LexLink <test@lexlink.io>"
+          S3_ENDPOINT_URL: ""
+          S3_BUCKET_NAME: lexlink-documents
+          S3_ACCESS_KEY_ID: ""
+          S3_SECRET_ACCESS_KEY: ""
+          S3_REGION: us-east-1
+        run: npm test
+
+      - name: Upload coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage/
+
+  docker-build:
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: docker build -t lexlink-api:test .
+
+      - name: Test Docker image starts
+        run: |
+          docker run -d --name lexlink-test             -e NODE_ENV=production             -e PORT=3000             -e DATABASE_URL=postgresql://lexlink:lexlink@host.docker.internal:5432/lexlink?schema=public             -e REDIS_URL=redis://host.docker.internal:6379/0             -e APP_SECRET_KEY=docker-test-secret-key-32-chars!!             -p 3001:3000             lexlink-api:test
+          sleep 10
+          docker logs lexlink-test
+          docker stop lexlink-test
+          docker rm lexlink-test

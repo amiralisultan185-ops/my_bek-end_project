@@ -1,0 +1,350 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  owner
+  director
+  senior_lawyer
+  lawyer
+  assistant
+  client
+  auditor
+}
+
+enum GroupType {
+  legal_area
+  branch
+  client_segment
+  review
+  custom
+}
+
+enum InquiryCategory {
+  family
+  criminal
+  corporate
+  real_estate
+  labor
+  ip
+  other
+}
+
+enum InquiryStatus {
+  pending_verification
+  new
+  assigned
+  completed
+  archived
+  cancelled
+}
+
+enum CaseStatus {
+  active
+  ready_for_review
+  completed
+  archived
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  done
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+enum AuditAction {
+  inquiry_submitted
+  inquiry_cancelled
+  otp_sent
+  otp_failed
+  case_assigned
+  case_reassigned
+  case_ready
+  case_completed
+  case_archived
+  task_created
+  task_updated
+  task_deleted
+  document_uploaded
+  note_added
+  group_created
+  group_member_added
+  case_group_added
+  user_created
+  user_role_changed
+  user_deactivated
+  login_success
+  login_failed
+}
+
+model User {
+  id                   String   @id @default(uuid()) @db.Uuid
+  email                String   @unique @db.VarChar(255)
+  full_name            String   @db.VarChar(200)
+  hashed_password      String
+  role                 UserRole
+  is_active            Boolean  @default(true)
+  must_change_password Boolean  @default(false)
+  email_verified_at    DateTime? @db.Timestamptz(6)
+  phone                String?  @db.VarChar(30)
+  created_at           DateTime @default(now()) @db.Timestamptz(6)
+  updated_at           DateTime @updatedAt @db.Timestamptz(6)
+
+  assigned_cases       Case[]         @relation("AssignedCases")
+  created_cases        Case[]         @relation("CreatedCases")
+  tasks                Task[]         @relation("TaskCreator")
+  documents            Document[]     @relation("DocumentUploader")
+  notes                CaseNote[]     @relation("NoteAuthor")
+  case_history_old     CaseHistory[]  @relation("CaseHistoryOld")
+  case_history_new     CaseHistory[]  @relation("CaseHistoryNew")
+  case_history_by      CaseHistory[]  @relation("CaseHistoryBy")
+  audit_logs           AuditLog[]
+  refresh_tokens       RefreshToken[]
+  client_inquiries     ClientInquiry[] @relation("ClientInquiries")
+  group_memberships    UserGroup[]    @relation("UserGroupMember")
+  assigned_groups      UserGroup[]    @relation("UserGroupAssigner")
+  created_groups       Group[]        @relation("GroupCreator")
+  assigned_case_groups CaseGroup[]    @relation("CaseGroupAssigner")
+
+  @@index([role, is_active], name: "ix_users_role_active")
+  @@map("users")
+}
+
+model RolePermission {
+  id          String   @id @default(uuid()) @db.Uuid
+  role        UserRole
+  permission  String   @db.VarChar(120)
+  description String?  @db.VarChar(500)
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  @@unique([role, permission], name: "role_permission_unique")
+  @@index([permission], name: "ix_role_permissions_permission")
+  @@map("role_permissions")
+}
+
+model Group {
+  id          String    @id @default(uuid()) @db.Uuid
+  name        String    @db.VarChar(120)
+  slug        String    @unique @db.VarChar(120)
+  type        GroupType @default(custom)
+  description String?   @db.VarChar(500)
+  created_by  String?   @db.Uuid
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @updatedAt @db.Timestamptz(6)
+
+  creator User?       @relation("GroupCreator", fields: [created_by], references: [id], onDelete: SetNull)
+  members UserGroup[]
+  cases   CaseGroup[]
+
+  @@index([type], name: "ix_groups_type")
+  @@map("groups")
+}
+
+model UserGroup {
+  user_id     String   @db.Uuid
+  group_id    String   @db.Uuid
+  assigned_by String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  user       User  @relation("UserGroupMember", fields: [user_id], references: [id], onDelete: Cascade)
+  group      Group @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("UserGroupAssigner", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@id([user_id, group_id])
+  @@index([group_id], name: "ix_user_groups_group_id")
+  @@map("user_groups")
+}
+
+model RefreshToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  user_id    String    @db.Uuid
+  jti        String    @unique @db.VarChar(255)
+  expires_at DateTime  @db.Timestamptz(6)
+  revoked_at DateTime? @db.Timestamptz(6)
+  created_at DateTime  @default(now()) @db.Timestamptz(6)
+
+  user User @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id], name: "ix_refresh_tokens_user_id")
+  @@map("refresh_tokens")
+}
+
+model ClientInquiry {
+  id                String          @id @default(uuid()) @db.Uuid
+  full_name         String          @db.VarChar(200)
+  email             String          @db.VarChar(255)
+  phone             String          @db.VarChar(30)
+  category          InquiryCategory
+  description       String          @db.Text
+  desired_timeline  String?         @db.VarChar(200)
+  status            InquiryStatus   @default(pending_verification)
+  client_user_id    String?         @db.Uuid
+  email_verified_at DateTime?       @db.Timestamptz(6)
+  ip_address        String?         @db.VarChar(45)
+  created_at        DateTime        @default(now()) @db.Timestamptz(6)
+
+  client      User?       @relation("ClientInquiries", fields: [client_user_id], references: [id], onDelete: SetNull)
+  case_case   Case?       @relation("InquiryCase")
+  inquiry_otp InquiryOTP?
+
+  @@index([status], name: "ix_inquiries_status")
+  @@index([category], name: "ix_inquiries_category")
+  @@index([client_user_id], name: "ix_inquiries_client_user_id")
+  @@index([created_at], name: "ix_inquiries_created_at")
+  @@map("client_inquiries")
+}
+
+model InquiryOTP {
+  id         String   @id @default(uuid()) @db.Uuid
+  inquiry_id String   @unique @db.Uuid
+  code_hash  String
+  expires_at DateTime @db.Timestamptz(6)
+  attempts   Int      @default(0)
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  inquiry ClientInquiry @relation(fields: [inquiry_id], references: [id], onDelete: Cascade)
+
+  @@index([inquiry_id], name: "ix_inquiry_otps_inquiry_id")
+  @@map("inquiry_otps")
+}
+
+model Case {
+  id               String     @id @default(uuid()) @db.Uuid
+  inquiry_id       String     @unique @db.Uuid
+  lawyer_id        String     @db.Uuid
+  assigned_by      String     @db.Uuid
+  status           CaseStatus @default(active)
+  created_at       DateTime   @default(now()) @db.Timestamptz(6)
+  last_activity_at DateTime   @default(now()) @db.Timestamptz(6)
+  completed_at     DateTime?  @db.Timestamptz(6)
+  archived_at      DateTime?  @db.Timestamptz(6)
+
+  inquiry    ClientInquiry @relation("InquiryCase", fields: [inquiry_id], references: [id], onDelete: Restrict)
+  lawyer     User          @relation("AssignedCases", fields: [lawyer_id], references: [id], onDelete: Restrict)
+  assignedBy User          @relation("CreatedCases", fields: [assigned_by], references: [id], onDelete: Restrict)
+  tasks      Task[]
+  documents  Document[]
+  notes      CaseNote[]
+  history    CaseHistory[]
+  groups     CaseGroup[]
+
+  @@index([lawyer_id], name: "ix_cases_lawyer_id")
+  @@index([status], name: "ix_cases_status")
+  @@index([inquiry_id], name: "ix_cases_inquiry_id")
+  @@index([last_activity_at], name: "ix_cases_last_activity")
+  @@map("cases")
+}
+
+model CaseGroup {
+  case_id     String   @db.Uuid
+  group_id    String   @db.Uuid
+  assigned_by String?  @db.Uuid
+  created_at  DateTime @default(now()) @db.Timestamptz(6)
+
+  case       Case  @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  group      Group @relation(fields: [group_id], references: [id], onDelete: Cascade)
+  assignedBy User? @relation("CaseGroupAssigner", fields: [assigned_by], references: [id], onDelete: SetNull)
+
+  @@id([case_id, group_id])
+  @@index([group_id], name: "ix_case_groups_group_id")
+  @@map("case_groups")
+}
+
+model CaseHistory {
+  id            String   @id @default(uuid()) @db.Uuid
+  case_id       String   @db.Uuid
+  old_lawyer_id String   @db.Uuid
+  new_lawyer_id String   @db.Uuid
+  changed_by    String   @db.Uuid
+  reason        String?  @db.VarChar(500)
+  changed_at    DateTime @default(now()) @db.Timestamptz(6)
+
+  case      Case @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  oldLawyer User @relation("CaseHistoryOld", fields: [old_lawyer_id], references: [id], onDelete: Restrict)
+  newLawyer User @relation("CaseHistoryNew", fields: [new_lawyer_id], references: [id], onDelete: Restrict)
+  changedBy User @relation("CaseHistoryBy", fields: [changed_by], references: [id], onDelete: Restrict)
+
+  @@index([case_id], name: "ix_case_history_case_id")
+  @@map("case_history")
+}
+
+model Task {
+  id          String       @id @default(uuid()) @db.Uuid
+  case_id     String       @db.Uuid
+  created_by  String       @db.Uuid
+  title       String       @db.VarChar(300)
+  description String?      @db.Text
+  status      TaskStatus   @default(todo)
+  priority    TaskPriority @default(medium)
+  due_date    DateTime?    @db.Timestamptz(6)
+  created_at  DateTime     @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime     @updatedAt @db.Timestamptz(6)
+
+  case      Case @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  createdBy User @relation("TaskCreator", fields: [created_by], references: [id], onDelete: Restrict)
+
+  @@index([case_id, status], name: "ix_tasks_case_id_status")
+  @@map("tasks")
+}
+
+model Document {
+  id              String   @id @default(uuid()) @db.Uuid
+  case_id         String   @db.Uuid
+  uploader_id     String   @db.Uuid
+  filename        String   @db.VarChar(255)
+  storage_key     String   @db.VarChar(500)
+  mime_type       String   @db.VarChar(100)
+  file_size_bytes Int
+  description     String?  @db.VarChar(500)
+  created_at      DateTime @default(now()) @db.Timestamptz(6)
+
+  case     Case @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  uploader User @relation("DocumentUploader", fields: [uploader_id], references: [id], onDelete: Restrict)
+
+  @@index([case_id], name: "ix_documents_case_id")
+  @@map("documents")
+}
+
+model CaseNote {
+  id         String   @id @default(uuid()) @db.Uuid
+  case_id    String   @db.Uuid
+  author_id  String   @db.Uuid
+  body       String   @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+
+  case   Case @relation(fields: [case_id], references: [id], onDelete: Cascade)
+  author User @relation("NoteAuthor", fields: [author_id], references: [id], onDelete: Restrict)
+
+  @@index([case_id], name: "ix_case_notes_case_id")
+  @@map("case_notes")
+}
+
+model AuditLog {
+  id            String      @id @default(uuid()) @db.Uuid
+  user_id       String?     @db.Uuid
+  action        AuditAction
+  resource_type String      @db.VarChar(50)
+  resource_id   String?     @db.Uuid
+  metadata      Json?
+  ip_address    String?     @db.VarChar(45)
+  created_at    DateTime    @default(now()) @db.Timestamptz(6)
+
+  user User? @relation(fields: [user_id], references: [id], onDelete: SetNull)
+
+  @@index([user_id, created_at], name: "ix_audit_user_created")
+  @@index([action], name: "ix_audit_action")
+  @@index([resource_type, resource_id], name: "ix_audit_resource")
+  @@map("audit_logs")
+}

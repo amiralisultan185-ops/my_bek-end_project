@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: lexlink-app
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://lexlink:lexlink@postgres:5432/lexlink?schema=public
+      - REDIS_URL=redis://redis:6379/0
+      - APP_SECRET_KEY=${APP_SECRET_KEY}
+      - JWT_ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=60
+      - REFRESH_TOKEN_EXPIRE_DAYS=30
+      - OTP_LENGTH=6
+      - OTP_TTL_MINUTES=15
+      - OTP_MAX_ATTEMPTS=3
+      - OTP_RESEND_COOLDOWN_SECONDS=60
+      - RATE_LIMIT_SUBMIT_PER_HOUR=5
+      - RATE_LIMIT_LOGIN_PER_MINUTE=10
+      - RATE_LIMIT_API_PER_MINUTE=100
+      - SMTP_HOST=${SMTP_HOST:-smtp.example.com}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - EMAIL_FROM=${EMAIL_FROM:-LexLink <noreply@lexlink.io>}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - lexlink-network
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: lexlink-postgres
+    environment:
+      POSTGRES_USER: lexlink
+      POSTGRES_PASSWORD: lexlink
+      POSTGRES_DB: lexlink
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lexlink -d lexlink"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lexlink-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: lexlink-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - lexlink-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  lexlink-network:
+    driver: bridge

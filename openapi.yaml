@@ -1,0 +1,1798 @@
+openapi: "3.0.3"
+info:
+  title: LexLink API v3.0 — Юридическая платформа
+  description: |
+    REST API для внутренней платформы управления юридическими делами.
+
+    ## Два типа доступа
+
+    **Публичный** (без авторизации):
+    - `POST /submit` — клиент отправляет анкету
+    - `POST /submit/verify` — клиент вводит OTP-код из письма
+    - `POST /submit/resend` — повторная отправка OTP
+
+    **Внутренний** (JWT Bearer):
+    - `/auth/*` — вход и управление токенами
+    - `/inquiries/*` — заявки (только директор)
+    - `/cases/*` — дела (директор: все; юрист: только свои)
+    - `/users/*` — управление командой (директор)
+
+    ## OTP-флоу клиента
+
+    1. Клиент заполняет форму → `POST /submit`
+    2. Система сохраняет заявку в статусе `pending_verification`
+    3. Клиент получает 6-значный код на email (TTL 15 мин, макс. 3 попытки)
+    4. Клиент вводит код → `POST /submit/verify`
+    5. При успехе: заявка → `new`, директор и юристы получают уведомления
+
+    ## Пагинация
+    Курсорная (`?cursor=&limit=`). Не OFFSET: при добавлении новых заявок
+    страницы со смещением сдвигаются. Курсор привязан к последнему элементу.
+
+  version: "3.0.0"
+
+servers:
+  - url: https://api.lexlink.io/v1
+    description: Production
+  - url: http://localhost:3001
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT токен директора или юриста. Получить через POST /auth/login.
+
+  schemas:
+
+    UserRole:
+      type: string
+      enum: [owner, director, senior_lawyer, lawyer, assistant, client, auditor]
+
+    InquiryCategory:
+      type: string
+      enum: [family, criminal, corporate, real_estate, labor, ip, other]
+      description: |
+        family      — Семейное право
+        criminal    — Уголовное право
+        corporate   — Корпоративное право
+        real_estate — Недвижимость
+        labor       — Трудовые споры
+        ip          — Интеллектуальная собственность
+        other       — Другое
+
+    InquiryStatus:
+      type: string
+      enum: [pending_verification, new, assigned, completed, archived, cancelled]
+
+    CaseStatus:
+      type: string
+      enum: [active, ready_for_review, completed, archived]
+
+    TaskStatus:
+      type: string
+      enum: [todo, in_progress, done]
+
+    TaskPriority:
+      type: string
+      enum: [low, medium, high]
+
+    ErrorResponse:
+      type: object
+      required: [error, message]
+      properties:
+        error:
+          type: string
+          example: conflict
+        message:
+          type: string
+          example: "Эта заявка уже назначена юристу."
+        detail:
+          type: object
+          additionalProperties: true
+
+    PaginationMeta:
+      type: object
+      required: [total_returned, limit, next_cursor]
+      properties:
+        total_returned:
+          type: integer
+          example: 20
+        limit:
+          type: integer
+          example: 20
+        next_cursor:
+          type: string
+          nullable: true
+          description: null если страниц больше нет.
+          example: "eyJpZCI6ImY0N2FjMTBiIiwiY3JlYXRlZF9hdCI6IjIwMjQtMTEtMDFUMTI6MDA6MDBaIn0="
+
+    InquiryForm:
+      type: object
+      required: [full_name, email, phone, category, description]
+      properties:
+        full_name:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Иванов Иван Иванович"
+        email:
+          type: string
+          format: email
+          description: На этот адрес придёт OTP-код.
+          example: "ivanov@example.com"
+        phone:
+          type: string
+          maxLength: 30
+          example: "+7 (701) 234-56-78"
+        category:
+          $ref: '#/components/schemas/InquiryCategory'
+        description:
+          type: string
+          minLength: 50
+          maxLength: 3000
+          example: "Меня незаконно уволили после 5 лет работы без объяснения причин. Работодатель отказывается выплачивать компенсацию. Нужна помощь."
+        desired_timeline:
+          type: string
+          maxLength: 200
+          nullable: true
+          example: "В течение 2 недель"
+
+    OTPVerifyRequest:
+      type: object
+      required: [inquiry_id, code]
+      properties:
+        inquiry_id:
+          type: string
+          format: uuid
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+          description: 6-значный цифровой код из письма.
+          example: "482917"
+
+    OTPResendRequest:
+      type: object
+      required: [inquiry_id]
+      properties:
+        inquiry_id:
+          type: string
+          format: uuid
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+
+    InquirySummary:
+      type: object
+      required: [id, full_name, category, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        full_name:
+          type: string
+          example: "Иванов Иван Иванович"
+        category:
+          $ref: '#/components/schemas/InquiryCategory'
+        status:
+          $ref: '#/components/schemas/InquiryStatus'
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-05T14:22:00Z"
+        case_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Заполняется после назначения юриста.
+          example: null
+
+    InquiryDetail:
+      allOf:
+        - $ref: '#/components/schemas/InquirySummary'
+        - type: object
+          required: [email, phone, description]
+          properties:
+            email:
+              type: string
+              example: "ivanov@example.com"
+            phone:
+              type: string
+              example: "+7 (701) 234-56-78"
+            description:
+              type: string
+              example: "Меня незаконно уволили после 5 лет работы..."
+            desired_timeline:
+              type: string
+              nullable: true
+              example: "В течение 2 недель"
+            email_verified_at:
+              type: string
+              format: date-time
+              example: "2024-11-05T14:25:00Z"
+
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "director@law-firm.com"
+        password:
+          type: string
+          example: "SecurePass!9"
+
+    TokenPair:
+      type: object
+      required: [access_token, refresh_token, token_type, expires_in]
+      properties:
+        access_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhMWIyYzNkNCIsInJvbGUiOiJkaXJlY3RvciIsImV4cCI6MTczMDgxMjAwMH0.signature"
+        refresh_token:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiJ1dWlkLWhlcmUiLCJleHAiOjE3MzM0MDQwMDB9.signature"
+        token_type:
+          type: string
+          example: "bearer"
+        expires_in:
+          type: integer
+          description: Время жизни access токена в секундах.
+          example: 3600
+
+    UserSummary:
+      type: object
+      required: [id, full_name, role, email, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        full_name:
+          type: string
+          example: "Смирнова Елена Викторовна"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        email:
+          type: string
+          example: "smirnova@law-firm.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+7 (701) 555-00-11"
+        is_active:
+          type: boolean
+          example: true
+
+    UserCreate:
+      type: object
+      required: [full_name, email, role]
+      description: Создание аккаунта сотрудника. Система генерирует временный пароль.
+      properties:
+        full_name:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Петров Алексей Сергеевич"
+        email:
+          type: string
+          format: email
+          example: "petrov@law-firm.com"
+        phone:
+          type: string
+          nullable: true
+          example: "+7 (701) 555-00-22"
+        role:
+          type: string
+          enum: [owner, senior_lawyer, lawyer, assistant, auditor]
+
+    ClientRegisterRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "client@example.com"
+        password:
+          type: string
+          example: "Client123!"
+        full_name:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Client Person"
+        phone:
+          type: string
+          nullable: true
+          example: "+77001112233"
+
+    EmailCodeRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "client@example.com"
+        code:
+          type: string
+          example: "123456"
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "client@example.com"
+
+    PasswordResetConfirmRequest:
+      type: object
+      required: [email, code, new_password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "client@example.com"
+        code:
+          type: string
+          example: "123456"
+        new_password:
+          type: string
+          example: "NewClient123!"
+
+    LawyerWorkload:
+      type: object
+      description: Нагрузка юриста для дашборда директора.
+      required: [lawyer, active_cases, pending_review, completed_cases]
+      properties:
+        lawyer:
+          $ref: '#/components/schemas/UserSummary'
+        active_cases:
+          type: integer
+          example: 3
+        pending_review:
+          type: integer
+          example: 1
+        completed_cases:
+          type: integer
+          example: 12
+        total_cases:
+          type: integer
+          example: 16
+        avg_days_to_complete:
+          type: number
+          format: float
+          nullable: true
+          example: 18.5
+        last_case_activity:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-11-10T16:30:00Z"
+
+    AssignRequest:
+      type: object
+      required: [lawyer_id]
+      properties:
+        lawyer_id:
+          type: string
+          format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+        note:
+          type: string
+          nullable: true
+          maxLength: 500
+          example: "Специалист по трудовым спорам, подходит по профилю."
+
+    ReassignRequest:
+      type: object
+      required: [lawyer_id]
+      properties:
+        lawyer_id:
+          type: string
+          format: uuid
+          example: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+        reason:
+          type: string
+          nullable: true
+          maxLength: 500
+          example: "Юрист ушёл в отпуск."
+
+    CaseStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ready_for_review, completed, active]
+          description: |
+            ready_for_review — юрист завершил (требует подтверждения директора)
+            completed        — директор закрывает дело
+            active           — директор возвращает на доработку
+
+    CaseSummary:
+      type: object
+      required: [id, inquiry, lawyer, status, created_at, last_activity_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        inquiry:
+          $ref: '#/components/schemas/InquirySummary'
+        lawyer:
+          $ref: '#/components/schemas/UserSummary'
+        status:
+          $ref: '#/components/schemas/CaseStatus'
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-07T10:00:00Z"
+        last_activity_at:
+          type: string
+          format: date-time
+          example: "2024-11-12T17:45:00Z"
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        open_tasks_count:
+          type: integer
+          example: 2
+        total_tasks_count:
+          type: integer
+          example: 5
+
+    TaskCreate:
+      type: object
+      required: [title, priority]
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 300
+          example: "Составить исковое заявление"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          example: "Подготовить иск по ст. 394 ТК РФ о незаконном увольнении."
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2024-12-01T00:00:00Z"
+
+    TaskDetail:
+      type: object
+      required: [id, case_id, title, status, priority, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "1a2b3c4d-5e6f-7890-abcd-ef1234567890"
+        case_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        title:
+          type: string
+          example: "Составить исковое заявление"
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-08T11:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2024-11-10T09:00:00Z"
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 300
+        description:
+          type: string
+          nullable: true
+        status:
+          $ref: '#/components/schemas/TaskStatus'
+        priority:
+          $ref: '#/components/schemas/TaskPriority'
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+
+    DocumentDetail:
+      type: object
+      required: [id, filename, mime_type, file_size_bytes, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "c1d2e3f4-a5b6-7890-abcd-ef1234567890"
+        filename:
+          type: string
+          example: "исковое_заявление_финал.pdf"
+        mime_type:
+          type: string
+          example: "application/pdf"
+        file_size_bytes:
+          type: integer
+          example: 245760
+        description:
+          type: string
+          nullable: true
+          example: "Финальная версия иска"
+        download_url:
+          type: string
+          description: Pre-signed S3 URL, действителен 15 минут.
+          example: "https://s3.amazonaws.com/lexlink/cases/..."
+        uploader:
+          $ref: '#/components/schemas/UserSummary'
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-09T14:00:00Z"
+
+    NoteCreate:
+      type: object
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          example: "Клиент подтвердил все обстоятельства увольнения. Позиция сильная."
+
+    NoteDetail:
+      type: object
+      required: [id, body, author, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "d4e5f6a7-b8c9-0123-def0-123456789abc"
+        body:
+          type: string
+          example: "Клиент подтвердил все обстоятельства."
+        author:
+          $ref: '#/components/schemas/UserSummary'
+        created_at:
+          type: string
+          format: date-time
+          example: "2024-11-09T15:30:00Z"
+
+  responses:
+    Unauthorized:
+      description: Отсутствует или недействителен JWT токен.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: unauthorized
+            message: "Недействительный или просроченный токен."
+    Forbidden:
+      description: Недостаточно прав.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: forbidden
+            message: "У вас нет доступа к этому ресурсу."
+    NotFound:
+      description: Ресурс не найден.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    Conflict:
+      description: Конфликт состояния.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+    ValidationError:
+      description: Ошибка валидации входных данных.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: validation_error
+            message: "Ошибка валидации."
+            detail:
+              description: "Минимум 50 символов"
+    InternalError:
+      description: Внутренняя ошибка сервера.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  parameters:
+    CursorParam:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Опaque-курсор пагинации. Не указывать на первой странице.
+    LimitParam:
+      name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        default: 20
+        minimum: 1
+        maximum: 100
+
+paths:
+
+  /submit:
+    post:
+      tags: [Публичная анкета]
+      summary: Шаг 1 — Отправить анкету клиента
+      description: |
+        **Без авторизации.** Принимает анкету, сохраняет со статусом
+        `pending_verification`, отправляет OTP-код на email.
+
+        Rate limit: 5 заявок/час с одного IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InquiryForm'
+      responses:
+        "201":
+          description: Анкета принята, OTP-код отправлен на email.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Код подтверждения отправлен на ivanov@example.com"
+                  inquiry_id:
+                    type: string
+                    format: uuid
+                    example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        "422":
+          $ref: '#/components/responses/ValidationError'
+        "429":
+          description: Превышен лимит заявок (5/час с IP).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: rate_limit_exceeded
+                message: "Слишком много заявок. Попробуйте через час."
+        "500":
+          $ref: '#/components/responses/InternalError'
+
+  /submit/verify:
+    post:
+      tags: [Публичная анкета]
+      summary: Шаг 2 — Подтвердить OTP-код
+      description: |
+        **Без авторизации.** Клиент вводит 6-значный код из письма.
+
+        - Код действителен 15 минут.
+        - Максимум 3 попытки. При исчерпании: заявка отменяется, форму нужно заполнить заново.
+        - При успехе: заявка становится `new`, директор и юристы получают уведомления.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OTPVerifyRequest'
+      responses:
+        "200":
+          description: Email подтверждён. Заявка принята.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Ваша заявка №f47ac10b принята. Мы свяжемся с вами в течение 1 рабочего дня."
+                  inquiry_id:
+                    type: string
+                    format: uuid
+                    example: "f47ac10b-58cc-4372-a567-0e02b2c3d479"
+        "400":
+          description: Неверный код. Ответ включает оставшиеся попытки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: invalid_code
+                message: "Неверный код. Осталось попыток: 2"
+                detail:
+                  attempts_remaining: 2
+        "410":
+          description: OTP-код истёк (прошло более 15 минут).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: code_expired
+                message: "Код подтверждения истёк. Заполните форму заново."
+        "429":
+          description: Исчерпаны все попытки. Заявка отменена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: attempts_exhausted
+                message: "Превышено количество попыток. Заявка отменена. Заполните форму заново."
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /submit/resend:
+    post:
+      tags: [Публичная анкета]
+      summary: Шаг 2b — Повторно отправить OTP-код
+      description: |
+        **Без авторизации.** Cooldown: не раньше 60 секунд после предыдущей отправки.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OTPResendRequest'
+      responses:
+        "200":
+          description: Новый код отправлен.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Новый код отправлен на ivanov@example.com"
+        "400":
+          description: Заявка не в статусе pending_verification.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "429":
+          description: Cooldown не прошёл (60 секунд).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: resend_cooldown
+                message: "Повторная отправка доступна через 45 секунд."
+                detail:
+                  retry_after_seconds: 45
+
+  /auth/verify-email:
+    post:
+      tags: [Авторизация]
+      summary: Подтвердить email пользователя
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailCodeRequest'
+      responses:
+        "200":
+          description: Email подтвержден.
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/resend-verification:
+    post:
+      tags: [Авторизация]
+      summary: Повторно отправить код подтверждения email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        "200":
+          description: Код отправлен или email уже подтвержден.
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /auth/password/forgot:
+    post:
+      tags: [Авторизация]
+      summary: Запросить сброс пароля по email
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        "200":
+          description: Если email существует, код сброса отправлен.
+
+  /auth/password/reset:
+    post:
+      tags: [Авторизация]
+      summary: Сменить пароль по email-коду
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirmRequest'
+      responses:
+        "204":
+          description: Пароль изменен.
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/login:
+    post:
+      tags: [Авторизация]
+      summary: Войти в систему (директор или юрист)
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        "200":
+          description: Успешная авторизация.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        "401":
+          description: Неверный email/пароль или аккаунт деактивирован.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: unauthorized
+                message: "Неверный email или пароль."
+        "422":
+          $ref: '#/components/responses/ValidationError'
+        "429":
+          description: Превышен лимит попыток входа (10/мин с IP).
+
+  /auth/client/register:
+    post:
+      tags: [Авторизация]
+      summary: Зарегистрировать клиента
+      description: Клиент может зарегистрироваться до заявки или после подтверждения заявки. Если уже есть подтвержденные заявки с таким email, они привязываются к клиентскому аккаунту.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClientRegisterRequest'
+      responses:
+        "201":
+          description: Клиентский аккаунт создан.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserSummary'
+                  linked_inquiries_count:
+                    type: integer
+                    example: 1
+        "409":
+          description: Email уже используется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /auth/refresh:
+    post:
+      tags: [Авторизация]
+      summary: Обновить access токен
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "200":
+          description: Новая пара токенов.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenPair'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /auth/logout:
+    post:
+      tags: [Авторизация]
+      summary: Выйти из системы
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refresh_token]
+              properties:
+                refresh_token:
+                  type: string
+      responses:
+        "204":
+          description: Выход выполнен, refresh токен отозван.
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /inquiries:
+    get:
+      tags: [Заявки]
+      summary: Список всех заявок (только директор)
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/InquiryStatus'
+        - name: category
+          in: query
+          schema:
+            $ref: '#/components/schemas/InquiryCategory'
+        - name: q
+          in: query
+          description: Полнотекстовый поиск (PostgreSQL GIN, по-русски).
+          schema:
+            type: string
+          example: "трудовой спор Алматы"
+      responses:
+        "200":
+          description: Список заявок.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, pagination]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/InquirySummary'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /inquiries/{inquiry_id}:
+    get:
+      tags: [Заявки]
+      summary: Детальная карточка заявки (только директор)
+      parameters:
+        - name: inquiry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Детали заявки.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InquiryDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /inquiries/{inquiry_id}/assign:
+    post:
+      tags: [Заявки]
+      summary: Назначить юриста на заявку (только директор)
+      description: |
+        Атомарная транзакция (SERIALIZABLE + SELECT FOR UPDATE):
+        1. Проверяет что заявка в статусе `new`.
+        2. Создаёт Case со статусом `active`.
+        3. Меняет статус заявки на `assigned`.
+        4. Отправляет email юристу и клиенту.
+      parameters:
+        - name: inquiry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignRequest'
+      responses:
+        "201":
+          description: Юрист назначен, дело создано.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "Юрист назначен. Дело создано."
+                  case_id:
+                    type: string
+                    format: uuid
+                    example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Заявка уже назначена или не в статусе new.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /cases:
+    get:
+      tags: [Дела]
+      summary: Список дел (директор — все; юрист — только свои)
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/CaseStatus'
+        - name: lawyer_id
+          in: query
+          description: Фильтр по юристу (только для директора).
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Список дел.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CaseSummary'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+  /cases/{case_id}:
+    get:
+      tags: [Дела]
+      summary: Детальная карточка дела (директор — любое; юрист — только своё)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Детали дела с задачами, документами, заметками.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /cases/{case_id}/status:
+    patch:
+      tags: [Дела]
+      summary: Изменить статус дела
+      description: |
+        `ready_for_review` — только юрист (своё дело, все задачи DONE).
+        `completed`        — только директор.
+        `active`           — только директор (возврат на доработку).
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CaseStatusUpdate'
+      responses:
+        "200":
+          description: Статус обновлён.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Есть незакрытые задачи или неверный переход статуса.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: conflict
+                message: "Нельзя завершить: есть 2 незакрытые задачи."
+
+  /cases/{case_id}/reassign:
+    patch:
+      tags: [Дела]
+      summary: Переназначить юриста на дело (только директор)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReassignRequest'
+      responses:
+        "200":
+          description: Юрист переназначен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CaseSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Нельзя переназначить архивированное дело.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /cases/{case_id}/tasks:
+    get:
+      tags: [Задачи]
+      summary: Список задач по делу
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/TaskStatus'
+      responses:
+        "200":
+          description: Список задач.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TaskDetail'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Задачи]
+      summary: Создать задачу (юрист своего дела)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        "201":
+          description: Задача создана.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+
+  /cases/{case_id}/tasks/{task_id}:
+    patch:
+      tags: [Задачи]
+      summary: Обновить задачу
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        "200":
+          description: Задача обновлена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+    delete:
+      tags: [Задачи]
+      summary: Удалить задачу (только если статус TODO)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: task_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Задача удалена.
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Задача не в статусе TODO.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /cases/{case_id}/documents:
+    get:
+      tags: [Документы]
+      summary: Список документов по делу
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        "200":
+          description: Список документов.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/DocumentDetail'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Документы]
+      summary: Загрузить документ (PDF/DOCX/JPEG/PNG, макс. 20 МБ)
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                description:
+                  type: string
+                  maxLength: 500
+                  example: "Решение суда первой инстанции"
+      responses:
+        "201":
+          description: Документ загружен.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /cases/{case_id}/notes:
+    get:
+      tags: [Заметки]
+      summary: Список внутренних заметок по делу
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+      responses:
+        "200":
+          description: Список заметок.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/NoteDetail'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Заметки]
+      summary: Добавить внутреннюю заметку
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NoteCreate'
+      responses:
+        "201":
+          description: Заметка добавлена.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NoteDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /jobs/email:
+    get:
+      tags: [Background Jobs]
+      summary: Список email jobs
+      description: Redis-backed visibility endpoint для email queue: queued, processing, completed, failed.
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [queued, processing, completed, failed]
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 25
+      responses:
+        "200":
+          description: Email jobs.
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /jobs/email/{job_id}:
+    get:
+      tags: [Background Jobs]
+      summary: Детали email job
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job detail.
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /users:
+    get:
+      tags: [Пользователи]
+      summary: Список юристов с нагрузкой (только директор)
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: is_active
+          in: query
+          schema:
+            type: boolean
+          example: true
+      responses:
+        "200":
+          description: Список юристов.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LawyerWorkload'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+    post:
+      tags: [Пользователи]
+      summary: Создать аккаунт юриста (только директор)
+      description: |
+        Генерирует временный пароль и отправляет его на email юриста.
+        Юрист должен сменить пароль при первом входе (must_change_password=true).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserCreate'
+      responses:
+        "201":
+          description: Аккаунт создан, письмо отправлено.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: Email уже используется.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/all:
+    get:
+      tags: [Пользователи]
+      summary: Список всех пользователей
+      parameters:
+        - $ref: '#/components/parameters/CursorParam'
+        - $ref: '#/components/parameters/LimitParam'
+        - name: role
+          in: query
+          schema:
+            $ref: '#/components/schemas/UserRole'
+        - name: q
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Пользователи с группами.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/UserSummary'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+
+  /users/{user_id}/reset-password:
+    patch:
+      tags: [Пользователи]
+      summary: Сбросить пароль пользователя
+      description: Генерирует новый временный пароль и выставляет must_change_password=true.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Новый временный пароль создан.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/UserSummary'
+                  temp_password:
+                    type: string
+                    example: "TempPass123!"
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+
+  /users/{user_id}/make-director:
+    patch:
+      tags: [Пользователи]
+      summary: Назначить нового директора
+      description: Новый директор должен быть активным lawyer или senior_lawyer без активных дел. Все текущие active directors переводятся в senior_lawyer.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Пользователь назначен директором.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: У пользователя есть активные дела или он уже директор.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /users/{user_id}/deactivate:
+    patch:
+      tags: [Пользователи]
+      summary: Деактивировать юриста (только директор)
+      description: |
+        Устанавливает is_active=false. Юрист теряет доступ к системе.
+        Запрещено если есть активные дела (переназначьте сначала).
+        Исторические данные сохраняются.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Аккаунт деактивирован.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: У юриста есть активные дела.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: conflict
+                message: "У юриста 2 активных дела. Переназначьте их перед деактивацией."
+
+  /users/me:
+    get:
+      tags: [Пользователи]
+      summary: Профиль текущего пользователя
+      responses:
+        "200":
+          description: Профиль.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+
+    patch:
+      tags: [Пользователи]
+      summary: Обновить профиль / сменить пароль
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                full_name:
+                  type: string
+                  maxLength: 200
+                phone:
+                  type: string
+                  maxLength: 30
+                current_password:
+                  type: string
+                  description: Обязателен при смене пароля.
+                new_password:
+                  type: string
+                  minLength: 8
+                  description: Минимум 8 символов, 1 заглавная, 1 цифра, 1 спецсимвол.
+      responses:
+        "200":
+          description: Профиль обновлён.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "422":
+          $ref: '#/components/responses/ValidationError'
