@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const state = {
-  apiBase: localStorage.getItem('powerLawDigital.apiBase') || defaultApiBase(),
+  apiBase: initialApiBase(),
   accessToken: localStorage.getItem('powerLawDigital.accessToken') || '',
   refreshToken: localStorage.getItem('powerLawDigital.refreshToken') || '',
   user: readJson('powerLawDigital.user'),
@@ -67,11 +67,31 @@ const viewAccess = {
   account: ['owner', 'director', 'senior_lawyer', 'lawyer', 'assistant', 'auditor', 'client'],
 };
 
+function isLocalHostname(hostname) {
+  return ['localhost', '127.0.0.1', '::1'].includes(hostname);
+}
+
 function defaultApiBase() {
   if (window.location.protocol.startsWith('http') && window.location.port !== '3001') {
     return `${window.location.origin}/api`;
   }
   return 'http://localhost:3001';
+}
+
+function initialApiBase() {
+  const fallback = defaultApiBase();
+  const stored = localStorage.getItem('powerLawDigital.apiBase');
+  if (!stored) return fallback;
+
+  try {
+    const storedUrl = new URL(stored, window.location.origin);
+    if (!isLocalHostname(window.location.hostname) && isLocalHostname(storedUrl.hostname)) {
+      return fallback;
+    }
+    return stored.replace(/\/$/, '');
+  } catch {
+    return fallback;
+  }
 }
 
 function readJson(key) {
