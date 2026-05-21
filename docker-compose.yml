@@ -73,6 +73,7 @@ services:
       - "${FRONTEND_PORT:-5173}:80"
     environment:
       API_PROXY_PASS: ${API_PROXY_PASS:-http://app:3001/}
+      API_PROXY_HOST: ${API_PROXY_HOST:-app}
     depends_on:
       app:
         condition: service_healthy
