@@ -22,7 +22,7 @@ function createRateLimiter({ keyPrefix, maxRequests, windowSeconds, keyGenerator
       res.setHeader('X-RateLimit-Reset', ttl);
 
       if (current > maxRequests) {
-        const err = new Error('Слишком много запросов. Попробуйте позже.');
+        const err = new Error('Too many requests. Try again later.');
         err.statusCode = 429;
         err.code = 'rate_limit_exceeded';
         err.detail = { retry_after_seconds: ttl };
@@ -31,7 +31,8 @@ function createRateLimiter({ keyPrefix, maxRequests, windowSeconds, keyGenerator
 
       next();
     } catch (err) {
-      next(err);
+      console.error(`Rate limiter unavailable for ${keyPrefix}:`, err.message);
+      next();
     }
   };
 }
