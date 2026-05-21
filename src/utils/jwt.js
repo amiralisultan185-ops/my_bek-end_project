@@ -11,7 +11,7 @@ function signAccessToken(payload) {
 
 function signRefreshToken() {
   const jti = uuidv4();
-  const token = jwt.sign({ jti, type: 'refresh' }, config.appSecretKey, {
+  const token = jwt.sign({ jti, type: 'refresh' }, config.refreshSecretKey, {
     algorithm: config.jwtAlgorithm,
     expiresIn: `${config.refreshTokenExpireDays}d`,
   });
@@ -23,7 +23,7 @@ function verifyToken(token) {
 }
 
 function verifyRefreshToken(token) {
-  const decoded = verifyToken(token);
+  const decoded = jwt.verify(token, config.refreshSecretKey, { algorithms: [config.jwtAlgorithm] });
   if (decoded.type !== 'refresh') {
     throw new Error('Invalid token type');
   }

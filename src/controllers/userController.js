@@ -35,15 +35,6 @@ async function listAll(req, res, next) {
 async function create(req, res, next) {
   try {
     const result = await userService.createUser(req.body, req.user);
-    res.status(201).json(result.user);
-  } catch (err) {
-    next(err);
-  }
-}
-
-async function createBulk(req, res, next) {
-  try {
-    const result = await userService.createUsers(req.body, req.user);
     res.status(201).json(result);
   } catch (err) {
     next(err);
@@ -105,7 +96,6 @@ module.exports = {
   list,
   listAll,
   create,
-  createBulk,
   deactivate,
   makeDirector,
   resetPassword,

@@ -35,19 +35,19 @@ describe('Auth Integration', () => {
 
   async function registerVerifiedDirector() {
     const res = await request(app).post('/auth/register').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
       full_name: 'Main Director',
     });
     expect(res.status).toBe(201);
-    await verifyUserEmail('director@lexlink.io');
+    await verifyUserEmail('director@example.invalid');
     return res;
   }
 
   async function loginDirector() {
     await registerVerifiedDirector();
     const res = await request(app).post('/auth/login').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
     });
     expect(res.status).toBe(200);
@@ -56,25 +56,25 @@ describe('Auth Integration', () => {
 
   test('POST /auth/register creates director when none exists', async () => {
     const res = await request(app).post('/auth/register').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
       full_name: 'Main Director',
     });
 
     expect(res.status).toBe(201);
-    expect(res.body.email).toBe('director@lexlink.io');
+    expect(res.body.email).toBe('director@example.invalid');
     expect(res.body.role).toBe('director');
   });
 
   test('POST /auth/register fails when director exists', async () => {
     await request(app).post('/auth/register').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
       full_name: 'Main Director',
     });
 
     const res = await request(app).post('/auth/register').send({
-      email: 'another@lexlink.io',
+      email: 'another@example.invalid',
       password: 'SecurePass!9',
       full_name: 'Another Director',
     });
@@ -85,14 +85,14 @@ describe('Auth Integration', () => {
 
   test('Unverified users cannot log in before email verification', async () => {
     await request(app).post('/auth/client/register').send({
-      email: 'unverified@lexlink.io',
+      email: 'unverified@example.invalid',
       password: 'ClientPass!9',
       full_name: 'Unverified Client',
-      phone: '+77001112233',
+      phone: '+70000000000',
     });
 
     const res = await request(app).post('/auth/login').send({
-      email: 'unverified@lexlink.io',
+      email: 'unverified@example.invalid',
       password: 'ClientPass!9',
     });
 
@@ -113,7 +113,7 @@ describe('Auth Integration', () => {
     await registerVerifiedDirector();
 
     const res = await request(app).post('/auth/login').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'WrongPass!9',
     });
 
@@ -163,18 +163,21 @@ describe('Auth Integration', () => {
       .post('/users')
       .set('Authorization', `Bearer ${dirToken}`)
       .send({
-        email: 'new-director@lexlink.io',
+        email: 'new-director@example.invalid',
         full_name: 'New Director Candidate',
         role: 'lawyer',
       });
+    expect(lawyerRes.status).toBe(201);
+    expect(lawyerRes.body.temp_password).toBeTruthy();
+    const lawyerId = lawyerRes.body.user.id;
 
     const res = await request(app)
-      .patch(`/users/${lawyerRes.body.id}/make-director`)
+      .patch(`/users/${lawyerId}/make-director`)
       .set('Authorization', `Bearer ${dirToken}`)
       .send();
 
     expect(res.status).toBe(200);
-    expect(res.body.id).toBe(lawyerRes.body.id);
+    expect(res.body.id).toBe(lawyerId);
     expect(res.body.role).toBe('director');
 
     const users = await prisma.user.findMany({
@@ -199,13 +202,15 @@ describe('Auth Integration', () => {
       .post('/users')
       .set('Authorization', `Bearer ${dirLogin.body.access_token}`)
       .send({
-        email: 'lawyer@lexlink.io',
+        email: 'lawyer@example.invalid',
         full_name: 'Reset Lawyer',
         role: 'lawyer',
       });
+    expect(lawyerRes.status).toBe(201);
+    expect(lawyerRes.body.temp_password).toBeTruthy();
 
     const resetRes = await request(app)
-      .patch(`/users/${lawyerRes.body.id}/reset-password`)
+      .patch(`/users/${lawyerRes.body.user.id}/reset-password`)
       .set('Authorization', `Bearer ${dirLogin.body.access_token}`)
       .send();
 
@@ -213,10 +218,10 @@ describe('Auth Integration', () => {
     expect(resetRes.body.temp_password).toBeTruthy();
     expect(resetRes.body.user.must_change_password).toBe(true);
 
-    await verifyUserEmail('lawyer@lexlink.io');
+    await verifyUserEmail('lawyer@example.invalid');
 
     const loginRes = await request(app).post('/auth/login').send({
-      email: 'lawyer@lexlink.io',
+      email: 'lawyer@example.invalid',
       password: resetRes.body.temp_password,
     });
 
@@ -226,18 +231,18 @@ describe('Auth Integration', () => {
 
   test('Client can register and submit an inquiry linked to the client account', async () => {
     const registerRes = await request(app).post('/auth/client/register').send({
-      email: 'client@lexlink.io',
+      email: 'client@example.invalid',
       password: 'ClientPass!9',
       full_name: 'Client Person',
-      phone: '+77001112233',
+      phone: '+70000000000',
     });
 
     expect(registerRes.status).toBe(201);
     expect(registerRes.body.user.role).toBe('client');
-    await verifyUserEmail('client@lexlink.io');
+    await verifyUserEmail('client@example.invalid');
 
     const loginRes = await request(app).post('/auth/login').send({
-      email: 'client@lexlink.io',
+      email: 'client@example.invalid',
       password: 'ClientPass!9',
     });
 
@@ -246,8 +251,8 @@ describe('Auth Integration', () => {
       .set('Authorization', `Bearer ${loginRes.body.access_token}`)
       .send({
         full_name: 'Ignored Public Name',
-        email: 'ignored@example.com',
-        phone: '+77009998877',
+        email: 'ignored@example.invalid',
+        phone: '+70000000000',
         category: 'family',
         description: 'This is a sufficiently detailed legal inquiry for integration testing purposes.',
       });
@@ -260,37 +265,37 @@ describe('Auth Integration', () => {
     });
 
     expect(inquiry.client_user_id).toBe(registerRes.body.user.id);
-    expect(inquiry.email).toBe('client@lexlink.io');
+    expect(inquiry.email).toBe('client@example.invalid');
     expect(inquiry.full_name).toBe('Client Person');
-    expect(inquiry.phone).toBe('+77001112233');
+    expect(inquiry.phone).toBe('+70000000000');
   });
 
   test('Password reset via email code changes the password', async () => {
     await request(app).post('/auth/client/register').send({
-      email: 'reset-client@lexlink.io',
+      email: 'reset-client@example.invalid',
       password: 'ClientPass!9',
       full_name: 'Reset Client',
-      phone: '+77001112233',
+      phone: '+70000000000',
     });
-    await verifyUserEmail('reset-client@lexlink.io');
+    await verifyUserEmail('reset-client@example.invalid');
 
     const forgotRes = await request(app).post('/auth/password/forgot').send({
-      email: 'reset-client@lexlink.io',
+      email: 'reset-client@example.invalid',
     });
     expect(forgotRes.status).toBe(200);
 
-    const user = await prisma.user.findUnique({ where: { email: 'reset-client@lexlink.io' } });
+    const user = await prisma.user.findUnique({ where: { email: 'reset-client@example.invalid' } });
     const code = await authCodeService.createPasswordResetCode(user.id);
 
     const resetRes = await request(app).post('/auth/password/reset').send({
-      email: 'reset-client@lexlink.io',
+      email: 'reset-client@example.invalid',
       code,
       new_password: 'NewClientPass!9',
     });
     expect(resetRes.status).toBe(204);
 
     const loginRes = await request(app).post('/auth/login').send({
-      email: 'reset-client@lexlink.io',
+      email: 'reset-client@example.invalid',
       password: 'NewClientPass!9',
     });
     expect(loginRes.status).toBe(200);

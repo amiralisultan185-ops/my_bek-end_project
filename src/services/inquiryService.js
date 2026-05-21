@@ -76,6 +76,7 @@ async function listInquiries({ cursor, limit, status, category, q }) {
     where,
     take: take + 1,
     cursor: cursor ? { id: cursor } : undefined,
+    skip: cursor ? 1 : 0,
     orderBy: { created_at: 'desc' },
     select: {
       id: true,

@@ -2,41 +2,52 @@ const request = require('supertest');
 const app = require('../../src/app');
 const prisma = require('../../src/utils/prisma');
 const redis = require('../../src/utils/redis');
+const authCodeService = require('../../src/services/authCodeService');
 
 describe('Inquiry & Assignment Integration', () => {
   let directorToken;
   let lawyerId;
 
   beforeAll(async () => {
+    await prisma.caseGroup.deleteMany();
+    await prisma.userGroup.deleteMany();
+    await prisma.caseHistory.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.document.deleteMany();
+    await prisma.caseNote.deleteMany();
+    await prisma.auditLog.deleteMany();
     await prisma.refreshToken.deleteMany();
     await prisma.case.deleteMany();
     await prisma.inquiryOTP.deleteMany();
     await prisma.clientInquiry.deleteMany();
     await prisma.user.deleteMany();
+    await redis.flushdb();
 
-    // Register director
     await request(app).post('/auth/register').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
-      full_name: 'Главный Директор',
+      full_name: 'Main Director',
     });
+    await verifyUserEmail('director@example.invalid');
 
     const loginRes = await request(app).post('/auth/login').send({
-      email: 'director@lexlink.io',
+      email: 'director@example.invalid',
       password: 'SecurePass!9',
     });
+    expect(loginRes.status).toBe(200);
     directorToken = loginRes.body.access_token;
 
-    // Create lawyer
     const lawyerRes = await request(app)
       .post('/users')
       .set('Authorization', `Bearer ${directorToken}`)
       .send({
-        email: 'lawyer@lexlink.io',
-        full_name: 'Юрист Тестовый',
+        email: 'lawyer@example.invalid',
+        full_name: 'Test Lawyer',
         role: 'lawyer',
       });
-    lawyerId = lawyerRes.body.id;
+    expect(lawyerRes.status).toBe(201);
+    expect(lawyerRes.body.temp_password).toBeTruthy();
+    lawyerId = lawyerRes.body.user.id;
   });
 
   afterAll(async () => {
@@ -44,13 +55,20 @@ describe('Inquiry & Assignment Integration', () => {
     await redis.quit();
   });
 
+  async function verifyUserEmail(email) {
+    const user = await prisma.user.findUnique({ where: { email } });
+    const code = await authCodeService.createEmailVerificationCode(user.id);
+    const res = await request(app).post('/auth/verify-email').send({ email, code });
+    expect(res.status).toBe(200);
+  }
+
   test('POST /submit creates inquiry and sends OTP', async () => {
     const res = await request(app).post('/submit').send({
-      full_name: 'Иванов Иван Иванович',
-      email: 'ivanov@example.com',
-      phone: '+7 (701) 234-56-78',
+      full_name: 'Ivan Ivanov',
+      email: 'ivanov@example.invalid',
+      phone: '+7 000 000 00 00',
       category: 'labor',
-      description: 'Меня незаконно уволили после 5 лет работы без объяснения причин.',
+      description: 'I was dismissed after five years of work and need legal help with the employment dispute.',
     });
 
     expect(res.status).toBe(201);
@@ -58,24 +76,15 @@ describe('Inquiry & Assignment Integration', () => {
     expect(res.body.message).toContain('Код подтверждения отправлен');
   });
 
-  test('POST /submit/verify confirms inquiry', async () => {
+  test('POST /submit/verify rejects an invalid OTP code', async () => {
     const submitRes = await request(app).post('/submit').send({
-      full_name: 'Петров Петр Петрович',
-      email: 'petrov@example.com',
-      phone: '+7 (701) 111-22-33',
+      full_name: 'Petr Petrov',
+      email: 'petrov@example.invalid',
+      phone: '+7 000 000 00 00',
       category: 'family',
-      description: 'Требуется консультация по разводу и разделу имущества после 10 лет брака.',
+      description: 'I need a consultation about divorce and property division after a long marriage.',
     });
     const inquiryId = submitRes.body.inquiry_id;
-
-    // Get OTP from DB (test-only backdoor)
-    const otpRecord = await prisma.inquiryOTP.findUnique({
-      where: { inquiry_id: inquiryId },
-    });
-
-    // We need the raw code, but it's hashed. In real test we'd mock email service.
-    // For this test, we'll verify the OTP service directly in unit tests.
-    // Here we test the 400/410 error paths.
 
     const wrongRes = await request(app).post('/submit/verify').send({
       inquiry_id: inquiryId,
@@ -86,14 +95,13 @@ describe('Inquiry & Assignment Integration', () => {
   });
 
   test('POST /inquiries/:id/assign creates case atomically', async () => {
-    // Create and verify inquiry directly via DB for speed
     const inquiry = await prisma.clientInquiry.create({
       data: {
-        full_name: 'Сидоров Сидор',
-        email: 'sidorov@example.com',
-        phone: '+7 (701) 333-44-55',
+        full_name: 'Sidor Sidorov',
+        email: 'sidorov@example.invalid',
+        phone: '+7 000 000 00 00',
         category: 'criminal',
-        description: 'Тестовое описание для назначения юриста на дело по уголовному праву',
+        description: 'Detailed test inquiry for assigning a lawyer to a criminal law case.',
         status: 'new',
         email_verified_at: new Date(),
       },
@@ -107,13 +115,11 @@ describe('Inquiry & Assignment Integration', () => {
     expect(res.status).toBe(201);
     expect(res.body.case_id).toBeTruthy();
 
-    // Verify inquiry status updated
     const updated = await prisma.clientInquiry.findUnique({
       where: { id: inquiry.id },
     });
     expect(updated.status).toBe('assigned');
 
-    // Verify case exists
     const caseRecord = await prisma.case.findUnique({
       where: { id: res.body.case_id },
     });
@@ -124,11 +130,11 @@ describe('Inquiry & Assignment Integration', () => {
   test('Double assignment returns 409', async () => {
     const inquiry = await prisma.clientInquiry.create({
       data: {
-        full_name: 'Двойной Тест',
-        email: 'double@example.com',
-        phone: '+7 (701) 555-66-77',
+        full_name: 'Double Assignment Test',
+        email: 'double@example.invalid',
+        phone: '+7 000 000 00 00',
         category: 'corporate',
-        description: 'Тестовое описание для проверки двойного назначения юриста на одно дело',
+        description: 'Detailed test inquiry for checking that one inquiry cannot be assigned twice.',
         status: 'new',
         email_verified_at: new Date(),
       },
@@ -146,5 +152,99 @@ describe('Inquiry & Assignment Integration', () => {
 
     expect(res.status).toBe(409);
     expect(res.body.error).toBe('conflict');
+  });
+
+  test('Case task, document, and note endpoints work for management user', async () => {
+    const inquiry = await prisma.clientInquiry.create({
+      data: {
+        full_name: 'Case Work Test',
+        email: 'casework@example.invalid',
+        phone: '+7 000 000 00 00',
+        category: 'labor',
+        description: 'Detailed test inquiry for case work endpoints and internal operations.',
+        status: 'new',
+        email_verified_at: new Date(),
+      },
+    });
+
+    const assignRes = await request(app)
+      .post(`/inquiries/${inquiry.id}/assign`)
+      .set('Authorization', `Bearer ${directorToken}`)
+      .send({ lawyer_id: lawyerId });
+
+    expect(assignRes.status).toBe(201);
+    const caseId = assignRes.body.case_id;
+
+    const taskCreateRes = await request(app)
+      .post(`/cases/${caseId}/tasks`)
+      .set('Authorization', `Bearer ${directorToken}`)
+      .send({
+        title: 'Prepare claim draft',
+        description: 'Prepare the first claim draft and collect supporting documents.',
+        priority: 'high',
+      });
+
+    expect(taskCreateRes.status).toBe(201);
+    expect(taskCreateRes.body.id).toBeTruthy();
+
+    const taskListRes = await request(app)
+      .get(`/cases/${caseId}/tasks?limit=20`)
+      .set('Authorization', `Bearer ${directorToken}`);
+
+    expect(taskListRes.status).toBe(200);
+    expect(taskListRes.body.items.length).toBe(1);
+
+    const taskUpdateRes = await request(app)
+      .patch(`/cases/${caseId}/tasks/${taskCreateRes.body.id}`)
+      .set('Authorization', `Bearer ${directorToken}`)
+      .send({ status: 'in_progress', priority: 'medium' });
+
+    expect(taskUpdateRes.status).toBe(200);
+    expect(taskUpdateRes.body.status).toBe('in_progress');
+
+    const documentBuffer = Buffer.from('Encrypted file upload integration test content.');
+
+    const documentRes = await request(app)
+      .post(`/cases/${caseId}/documents`)
+      .set('Authorization', `Bearer ${directorToken}`)
+      .set('Content-Type', 'application/pdf')
+      .set('X-Filename', 'claim-draft.pdf')
+      .set('X-Description', 'First claim draft for review.')
+      .send(documentBuffer);
+
+    expect(documentRes.status).toBe(201);
+    expect(documentRes.body.storage_key).toContain(caseId);
+    expect(documentRes.body.sha256_hash).toHaveLength(64);
+    expect(documentRes.body.encrypted).toBe(true);
+
+    const documentsListRes = await request(app)
+      .get(`/cases/${caseId}/documents?limit=20`)
+      .set('Authorization', `Bearer ${directorToken}`);
+
+    expect(documentsListRes.status).toBe(200);
+    expect(documentsListRes.body.items.length).toBe(1);
+
+    const downloadRes = await request(app)
+      .get(`/cases/${caseId}/documents/${documentRes.body.id}/download`)
+      .set('Authorization', `Bearer ${directorToken}`);
+
+    expect(downloadRes.status).toBe(200);
+    expect(downloadRes.headers['x-content-sha256']).toBe(documentRes.body.sha256_hash);
+    expect(Buffer.compare(downloadRes.body, documentBuffer)).toBe(0);
+
+    const noteRes = await request(app)
+      .post(`/cases/${caseId}/notes`)
+      .set('Authorization', `Bearer ${directorToken}`)
+      .send({ body: 'Client confirmed the timeline and sent supporting details.' });
+
+    expect(noteRes.status).toBe(201);
+    expect(noteRes.body.author.id).toBeTruthy();
+
+    const notesListRes = await request(app)
+      .get(`/cases/${caseId}/notes?limit=20`)
+      .set('Authorization', `Bearer ${directorToken}`);
+
+    expect(notesListRes.status).toBe(200);
+    expect(notesListRes.body.items.length).toBe(1);
   });
 });

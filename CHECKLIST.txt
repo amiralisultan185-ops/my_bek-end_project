@@ -1,0 +1,35 @@
+POWER LAW Digital final self-verification checklist
+
+[ ] Application is live on DeployRocks or another public cloud platform.
+[ ] DEPLOYED_URL.txt contains the final public frontend URL.
+[ ] VIDEO_LINK.txt contains the final defense video URL.
+[ ] docker compose up --build boots backend + frontend + PostgreSQL 15 + Redis locally.
+[x] Backend Dockerfile is configured to apply Prisma migrations on container startup.
+[x] Backend Dockerfile is configured to seed the initial owner on container startup.
+[x] Frontend source code exists in frontend/.
+[x] Frontend consumes the real backend API; it does not use mocked data.
+[x] Figma frontend design link is saved in FIGMA_DESIGN_URL.txt.
+[x] Figma frontend design documentation exists in docs/frontend-figma-design.md.
+[x] Swagger UI is served at /docs.
+[x] openapi.yaml is present in the repository root.
+[x] Prisma migration history is present in prisma/migrations/.
+[x] Registration, login, logout, refresh, email verification, and password reset endpoints exist.
+[x] Protected routes require Bearer JWT access tokens.
+[x] Refresh tokens are rotated and stored/revoked server-side.
+[x] RBAC is enforced through role permissions.
+[x] Rate limiting is enabled on auth and sensitive public endpoints.
+[x] Redis-backed email queue exists.
+[x] Email job visibility endpoints exist.
+[x] At least three business email events are implemented.
+[x] Document uploads are encrypted before storage in PostgreSQL.
+[x] Cursor-based pagination is used on main list endpoints.
+[x] Tests directory exists with unit and integration tests.
+[x] npm test has been run and passed on the final machine.
+[ ] Real SMTP provider credentials are configured for production.
+[ ] Email verification sends a real email in production.
+[ ] Password reset sends a real email in production.
+[ ] CORS_ORIGINS contains the deployed frontend URL in production.
+[ ] Postman collection is imported and all defense tabs are ready.
+[x] No raw SQL queries are used in application code; database access goes through Prisma ORM.
+[ ] GitHub repository is public or the instructor is added as a contributor.
+[ ] I can explain each workflow and database state change during the oral defense.

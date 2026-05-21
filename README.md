@@ -1,172 +1,282 @@
-# LexLink API
+# POWER LAW Digital
 
-Production-oriented backend for a legal services platform. The system supports staff management, client inquiry intake, OTP verification, case assignment, group-based access, role permissions, JWT authentication, email verification, password reset, audit logging, and Redis-backed email jobs.
+POWER LAW Digital is a production-oriented legal services platform with an Express/Prisma backend, PostgreSQL, Redis-backed email jobs, and a full frontend application.
 
-## Tech Stack
+## Docker Start
 
-- Node.js 20
-- Express
-- Prisma ORM
-- PostgreSQL
-- Redis
-- JWT access and refresh tokens
-- Nodemailer SMTP integration
-- Jest + Supertest
-
-## Quick Start
+Use the standard Docker Compose flow:
 
 ```powershell
-cd C:\Users\Амир\Downloads\lexlink-api-fixed\lexlink-fixed
+cd C:\Users\<your-user>\Downloads\lexlink-api-fixed\lexlink-fixed
 copy .env.example .env
-npm install
+docker compose up --build
+```
+
+Local URLs:
+
+```text
+Frontend: http://localhost:5173
+Backend:  http://localhost:3001
+Swagger:  http://localhost:3001/docs
+Health:   http://localhost:3001/health
+```
+
+The backend container automatically runs:
+
+```text
+prisma migrate deploy
+npm run db:seed
+node src/server.js
+```
+
+Default seeded owner:
+
+```text
+Email:    owner@example.invalid
+Password: OwnerPass123!
+Role:     owner
+```
+
+## Stop
+
+```powershell
+docker compose down
+```
+
+## Reset Local Database
+
+This deletes local PostgreSQL/Redis Docker volumes:
+
+```powershell
+docker compose down -v
+docker compose up --build
+```
+
+## Logs
+
+```powershell
+docker compose logs -f app frontend postgres redis
+```
+
+## Tests
+
+Start PostgreSQL and Redis first:
+
+```powershell
 docker compose up -d postgres redis
-npx prisma generate
-npx prisma migrate reset --force
-npm run dev
+npm.cmd test
 ```
 
-API:
+Useful focused commands:
 
-```text
-http://localhost:3001
+```powershell
+npm.cmd run test:unit
+npm.cmd run test:integration
+npm.cmd run lint
+npm.cmd run email:check
 ```
 
-Swagger UI:
+## Environment Variables
 
-```text
-http://localhost:3001/docs
-```
+Critical production variables are listed in `.env.example`.
 
-Health check:
-
-```text
-http://localhost:3001/health
-```
-
-## Environment
-
-Required production variables are documented in `.env.example`.
-
-Important variables:
+Required for deployment:
 
 | Variable | Purpose |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string |
 | `REDIS_URL` | Redis connection string |
-| `APP_SECRET_KEY` | JWT signing secret, minimum 32 characters |
-| `ALLOWED_ORIGINS` | Comma-separated CORS origins, no wildcard in production |
-| `SMTP_HOST` | SMTP provider host |
-| `SMTP_PORT` | SMTP provider port |
-| `SMTP_USER` | SMTP username |
-| `SMTP_PASSWORD` | SMTP password |
-| `EMAIL_FROM` | Sender identity |
-| `EMAIL_QUEUE_ENABLED` | Queue email through Redis |
-| `EMAIL_WORKER_ENABLED` | Start the email worker with the API |
+| `JWT_SECRET_KEY` | Access token signing secret |
+| `JWT_REFRESH_SECRET_KEY` | Refresh token signing secret |
+| `EMAIL_API_KEY` / `SMTP_PASSWORD` | Email provider API key or SMTP password |
+| `EMAIL_FROM_ADDRESS` / `EMAIL_FROM` | Verified sender identity |
+| `BACKEND_PORT` | Backend port |
+| `FRONTEND_PORT` | Frontend port |
+| `ENVIRONMENT` / `NODE_ENV` | `development` or `production` |
+| `CORS_ORIGINS` / `ALLOWED_ORIGINS` | Comma-separated allowed origins |
+| `DOCUMENT_ENCRYPTION_KEY` | AES-256-GCM document encryption secret |
 
-The app refuses to boot when critical production settings are invalid.
+For Docker Compose and DeployRocks, use service names:
 
-## Core Workflows
+```env
+DATABASE_URL=postgresql://lexlink:lexlink@postgres:5432/lexlink?schema=public
+REDIS_URL=redis://redis:6379/0
+```
 
-### Auth
+Production mode refuses to boot without real SMTP credentials, safe CORS origins, database URL, Redis URL, and document encryption key.
 
-1. Register director or client.
-2. Receive email verification code.
-3. Verify email through `POST /auth/verify-email`.
-4. Login through `POST /auth/login`.
-5. Use Bearer token for protected endpoints.
-6. Rotate refresh token through `POST /auth/refresh`.
-7. Logout through `POST /auth/logout`.
+## Real Email Setup
 
-### Client Inquiry
+Development can print mock emails to logs. Production must use a real SMTP provider.
 
-1. Public or authenticated client submits `POST /submit`.
-2. System creates inquiry in `pending_verification`.
-3. System queues OTP email.
-4. Client verifies OTP through `POST /submit/verify`.
-5. Director/owner sees inquiry and assigns it to a lawyer.
-6. Assignment creates a case and queues assignment notification.
+Example SendGrid-style SMTP:
 
-### Staff
+```env
+ENVIRONMENT=production
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey
+EMAIL_API_KEY=your-sendgrid-api-key
+EMAIL_FROM_ADDRESS=POWER LAW Digital <verified-sender@example.invalid>
+EMAIL_QUEUE_ENABLED=true
+EMAIL_WORKER_ENABLED=true
+```
 
-1. Owner/director creates staff with `POST /users`.
-2. System generates temporary password and queues email.
-3. Staff verifies email.
-4. Staff logs in and must change temporary password before protected work.
+Emails are queued through Redis. API endpoints do not block while the provider sends the email.
 
-### Background Jobs
+Business emails implemented:
 
-Email is not sent synchronously from API endpoints. The API enqueues email jobs in Redis. The email worker processes jobs and records:
+- Account email verification
+- Password reset
+- Client inquiry confirmation
+- New inquiry notification to director
+- Case assignment notification to lawyer
+- Temporary staff password delivery
 
-- status: `queued`, `processing`, `completed`, `failed`
-- attempts
-- max attempts
-- last error
-
-Visibility endpoints:
+Queue visibility:
 
 ```text
 GET /jobs/email
 GET /jobs/email/:job_id
 ```
 
-## Roles
+Detailed SMTP setup:
 
-- `owner`: full business administration, can create additional owners.
-- `director`: manages staff, groups, inquiries, assignment, case completion.
-- `senior_lawyer`: works assigned cases.
-- `lawyer`: works assigned cases.
-- `assistant`: group-based support access.
-- `auditor`: group-based read-only review access.
-- `client`: client account for linked inquiries.
-
-## Migrations
-
-Use Prisma Migrate:
-
-```powershell
-npx prisma migrate deploy
+```text
+docs/smtp-setup.md
 ```
 
-For local defense/demo reset:
+## Main Workflows
 
-```powershell
-npx prisma migrate reset --force
+### Auth
+
+1. Register director/client or seed owner.
+2. Receive verification email.
+3. Verify with `POST /auth/verify-email`.
+4. Login with `POST /auth/login`.
+5. Use Bearer access token on protected routes.
+6. Rotate refresh token with `POST /auth/refresh`.
+7. Logout with `POST /auth/logout`.
+
+### Staff
+
+1. Owner/director creates staff with `POST /users`.
+2. API returns and emails a temporary password.
+3. Staff verifies email.
+4. Staff logs in and must change the temporary password through `PATCH /users/me`.
+
+### Client Inquiry and Case
+
+1. Client submits `POST /submit`.
+2. Client verifies OTP with `POST /submit/verify`.
+3. Director/owner lists inquiries and assigns a lawyer.
+4. Assignment creates a case and sends a notification.
+5. Authorized staff manages tasks, encrypted documents, and notes.
+
+### Case Work
+
+```text
+GET    /cases/:case_id/tasks
+POST   /cases/:case_id/tasks
+PATCH  /cases/:case_id/tasks/:task_id
+DELETE /cases/:case_id/tasks/:task_id
+GET    /cases/:case_id/documents
+POST   /cases/:case_id/documents
+GET    /cases/:case_id/documents/:document_id/download
+GET    /cases/:case_id/notes
+POST   /cases/:case_id/notes
 ```
 
-## Tests
-
-Run all tests:
-
-```powershell
-npm test
-```
-
-Run auth integration tests only:
-
-```powershell
-npm test -- --runTestsByPath tests/integration/auth.test.js
-```
-
-PostgreSQL and Redis must be running before integration tests.
+Documents are uploaded as raw binary. The backend stores encrypted bytes in PostgreSQL, calculates SHA-256 for integrity, and decrypts only through the protected download endpoint.
 
 ## API Documentation
 
-The OpenAPI contract is in `openapi.yaml` and served live at `/docs`.
-
-Postman collection:
-
 ```text
-LexLink.postman_collection.json
+OpenAPI: openapi.yaml
+Swagger: /docs
+Postman: PowerLawDigital.postman_collection.json
 ```
 
-## Defense Checklist
+## Migrations
 
-See:
+Prisma migration history is stored in:
 
 ```text
-docs/pre-defense-checklist.md
+prisma/migrations
 ```
 
-## Repository Submission
+Apply migrations manually if needed:
 
-Upload the full project to GitHub. Do not submit ZIP-only. If the repository is private, add the instructor as a contributor.
+```powershell
+npx.cmd prisma migrate deploy
+```
+
+## Frontend Application
+
+The frontend application is in `frontend/`. It calls the real backend API and covers:
+
+- Director/client registration
+- Email verification and resend
+- Login, profile, refresh, logout
+- Password reset and temporary password change
+- Staff creation and director promotion
+- Public inquiry submit/OTP verification
+- Inquiry assignment and case creation
+- Case tasks, encrypted document upload/download, and notes
+- Groups and email job visibility
+
+When running through Docker Compose, the frontend proxies `/api/*` to the backend service.
+
+## Figma Design
+
+The production frontend design is included as a project deliverable:
+
+```text
+FIGMA_DESIGN_URL.txt
+docs/frontend-figma-design.md
+```
+
+Figma file:
+
+```text
+https://www.figma.com/design/SzqJk42vNIv3yTVDU0PGhU
+```
+
+## Deployment
+
+Preferred platform: DeployRocks.
+
+1. Push this repository to GitHub.
+2. Open `https://dashboard.deployrocks.com`.
+3. Connect the GitHub repository.
+4. Select Docker Compose deployment.
+5. Configure production environment variables from `.env.example`.
+6. Set `ENVIRONMENT=production`.
+7. Use service hostnames `postgres` and `redis` inside URLs.
+8. Add the deployed frontend URL to `CORS_ORIGINS`.
+9. Deploy and verify `/health`, `/docs`, and the frontend.
+10. Save the final public URL in `DEPLOYED_URL.txt`.
+
+If DeployRocks is unavailable, deploy the same Docker Compose stack on Render, Railway, Fly.io, or another provider that supports containers and managed PostgreSQL/Redis.
+
+## Submission Files
+
+- `docker-compose.yml`
+- `.env.example`
+- `README.md`
+- `openapi.yaml`
+- `prisma/migrations/`
+- `tests/`
+- `frontend/`
+- `CHECKLIST.txt`
+- `DEPLOYED_URL.txt`
+- `VIDEO_LINK.txt`
+
+## Security Notes
+
+- No plaintext passwords are stored.
+- All database access goes through Prisma ORM.
+- Production CORS cannot use wildcard origins.
+- Production email cannot use mock delivery.
+- Uploaded documents are encrypted before storage.
+- Refresh tokens are rotated and revoked on use/logout.

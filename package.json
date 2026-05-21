@@ -1,15 +1,16 @@
 {
-  "name": "lexlink-api",
+  "name": "power-law-digital-api",
   "version": "1.0.0",
-  "description": "LexLink Legal Platform API — Node.js/Express/Prisma",
+  "description": "POWER LAW Digital Legal Platform API — Node.js/Express/Prisma",
   "main": "src/server.js",
-  "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
-    "db:migrate": "prisma migrate deploy",
+    "scripts": {
+        "start": "node src/server.js",
+        "dev": "nodemon src/server.js",
+        "db:migrate": "prisma migrate deploy",
     "db:generate": "prisma generate",
-    "db:seed": "node src/scripts/initDirector.js",
+    "db:seed": "node src/scripts/initOwner.js",
     "db:reset": "prisma migrate reset --force",
+    "email:check": "node src/scripts/checkSmtp.js",
     "test": "jest --coverage --runInBand",
     "test:unit": "jest tests/unit --runInBand",
     "test:integration": "jest tests/integration --runInBand",

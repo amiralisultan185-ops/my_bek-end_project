@@ -1,5 +1,5 @@
 const prisma = require('../utils/prisma');
-const { hashPassword, verifyPassword, generateTempPassword } = require('../utils/password');
+const { hashPassword, verifyPassword } = require('../utils/password');
 const { signAccessToken, signRefreshToken, verifyRefreshToken } = require('../utils/jwt');
 const { writeAuditLog } = require('../utils/audit');
 const { getClientIp } = require('../middleware/rateLimit');
@@ -286,12 +286,6 @@ async function refresh(refreshToken) {
     throw err;
   }
 
-  // Rotate: revoke old, create new
-  await prisma.refreshToken.update({
-    where: { id: tokenRecord.id },
-    data: { revoked_at: new Date() },
-  });
-
   const user = tokenRecord.user;
   if (!user.is_active) {
     const err = new Error('Аккаунт деактивирован');
@@ -309,12 +303,29 @@ async function refresh(refreshToken) {
   const { token: newRefreshToken, jti: newJti } = signRefreshToken();
   const refreshExpires = new Date(Date.now() + config.refreshTokenExpireDays * 24 * 60 * 60 * 1000);
 
-  await prisma.refreshToken.create({
-    data: {
-      user_id: user.id,
-      jti: newJti,
-      expires_at: refreshExpires,
-    },
+  await prisma.$transaction(async (tx) => {
+    const revoked = await tx.refreshToken.updateMany({
+      where: {
+        id: tokenRecord.id,
+        revoked_at: null,
+      },
+      data: { revoked_at: new Date() },
+    });
+
+    if (revoked.count !== 1) {
+      const err = new Error('Refresh token has already been used');
+      err.statusCode = 401;
+      err.code = 'unauthorized';
+      throw err;
+    }
+
+    await tx.refreshToken.create({
+      data: {
+        user_id: user.id,
+        jti: newJti,
+        expires_at: refreshExpires,
+      },
+    });
   });
 
   return {

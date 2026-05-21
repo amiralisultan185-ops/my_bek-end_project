@@ -1,5 +1,3 @@
-const caseService = require('../../src/services/caseService');
-
 describe('Case Service Guards', () => {
   test('updateStatus rejects archived case modification', async () => {
     // This would require DB setup; simplified to test logic structure

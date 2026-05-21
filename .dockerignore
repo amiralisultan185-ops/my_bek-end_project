@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+coverage
+.git
+.env
+.env.local
+.env.*.local
+backups
+*.log
+*.pid
+*.seed
+assistant.id
+case.id
+DEPLOYED_URL.txt
+VIDEO_LINK.txt

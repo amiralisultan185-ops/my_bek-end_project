@@ -17,17 +17,6 @@ const createSchema = z.object({
   }),
 });
 
-const bulkCreateSchema = z.object({
-  body: z.object({
-    users: z.array(z.object({
-      full_name: z.string().min(5).max(200),
-      email: z.string().email(),
-      phone: z.string().max(30).optional().nullable(),
-      role: z.enum(STAFF_CREATION_ROLES),
-    })).min(1).max(25),
-  }),
-});
-
 const updateMeSchema = z.object({
   body: z.object({
     full_name: z.string().min(1).max(200).optional(),
@@ -49,7 +38,6 @@ router.patch('/me', validate(updateMeSchema), userController.updateMe);
 // Director-only
 router.get('/all', requirePermissions('users:manage'), userController.listAll);
 router.get('/', requirePermissions('users:manage'), userController.list);
-router.post('/bulk', requirePermissions('users:manage'), validate(bulkCreateSchema), userController.createBulk);
 router.post('/', requirePermissions('users:manage'), validate(createSchema), userController.create);
 router.patch('/:user_id/reset-password', requirePermissions('users:manage'), userController.resetPassword);
 router.patch('/:user_id/make-director', requirePermissions('users:manage'), userController.makeDirector);

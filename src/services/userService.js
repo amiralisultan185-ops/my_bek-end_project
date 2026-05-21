@@ -64,7 +64,7 @@ async function createUser(data, currentUser) {
   // Email temp password (mock in dev)
   emailService.sendEmail({
     to: user.email,
-    subject: 'Ваш временный пароль — LexLink',
+    subject: 'Ваш временный пароль — POWER LAW Digital',
     text: `Ваш временный пароль: ${tempPassword}. Смените его при первом входе.`,
   }).catch(() => {});
 
@@ -73,35 +73,6 @@ async function createUser(data, currentUser) {
   emailService.sendUserVerificationEmail(user.email, code).catch(() => {});
 
   return { user, temp_password: tempPassword };
-}
-
-async function createUsers(data, currentUser) {
-  const results = [];
-
-  for (const item of data.users) {
-    try {
-      const result = await createUser(item, currentUser);
-      results.push({
-        ok: true,
-        user: result.user,
-        temp_password: result.temp_password,
-      });
-    } catch (err) {
-      results.push({
-        ok: false,
-        email: item.email,
-        role: item.role,
-        error: err.code || 'error',
-        message: err.message,
-      });
-    }
-  }
-
-  return {
-    created_count: results.filter(item => item.ok).length,
-    failed_count: results.filter(item => !item.ok).length,
-    results,
-  };
 }
 
 async function deactivateLawyer(userId, changedById) {
@@ -369,7 +340,7 @@ async function resetUserPassword(userId, changedById) {
 
   emailService.sendEmail({
     to: user.email,
-    subject: 'Новый временный пароль — LexLink',
+    subject: 'Новый временный пароль — POWER LAW Digital',
     text: `Ваш новый временный пароль: ${tempPassword}. Смените его при следующем входе.`,
   }).catch(() => {});
 
@@ -417,7 +388,6 @@ async function updateProfile(userId, data) {
 
 module.exports = {
   createUser,
-  createUsers,
   deactivateLawyer,
   makeDirector,
   getWorkloadDashboard,

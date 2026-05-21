@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>POWER LAW Digital</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="publicView" class="public-layout">
+      <header class="site-header">
+        <a class="site-brand" href="#top" aria-label="POWER LAW Digital">
+          <span>POWER LAW Digital</span>
+          <small>LAW digital office</small>
+        </a>
+        <nav class="site-nav" aria-label="Public navigation">
+          <a href="#services">Services</a>
+          <a href="#advantages">Advantages</a>
+          <a href="#company">Company</a>
+          <a href="#contact">Contact</a>
+        </nav>
+        <div class="site-actions">
+          <a class="nav-phone" href="tel:+70000000000">+7 000 000 00 00</a>
+          <a class="button-link" href="#consultation">Consultation</a>
+        </div>
+      </header>
+
+      <main id="top">
+        <section class="hero-section">
+          <div class="hero-copy">
+            <div class="eyebrow">Legal services in Almaty and across Kazakhstan</div>
+            <h1>Modern legal support with a transparent digital workspace.</h1>
+            <p>
+              POWER LAW Digital turns POWER LAW style legal consulting into a managed client intake,
+              assignment, case work, document, task, and notification system.
+            </p>
+            <div class="hero-actions">
+              <a class="button-link primary" href="#consultation">Submit inquiry</a>
+              <a class="button-link secondary-link" href="#auth">Open workspace</a>
+            </div>
+            <div class="trust-row">
+              <span>Confidential intake</span>
+              <span>Case tracking</span>
+              <span>Encrypted documents</span>
+            </div>
+          </div>
+        </section>
+
+        <section id="services" class="site-section">
+          <div class="section-heading">
+            <small>Services</small>
+            <h2>Legal support connected to real case operations</h2>
+          </div>
+          <div class="service-grid">
+            <article>
+              <span>01</span>
+              <h3>Corporate consulting</h3>
+              <p>Legal department setup, risk review, claim work, contract analysis, and ongoing business support.</p>
+            </article>
+            <article>
+              <span>02</span>
+              <h3>Representation and disputes</h3>
+              <p>Case intake, lawyer assignment, task tracking, notes, status transitions, and controlled document access.</p>
+            </article>
+            <article>
+              <span>03</span>
+              <h3>Documents and audit</h3>
+              <p>Document drafting, legal expertise, HR/legal audit, permits, company registration, and compliance workflows.</p>
+            </article>
+          </div>
+        </section>
+
+        <section id="advantages" class="site-section muted-section">
+          <div class="section-heading">
+            <small>Advantages</small>
+            <h2>Built around trust, transparency, and disciplined legal work</h2>
+          </div>
+          <div class="advantage-grid">
+            <div><strong>Honesty</strong><p>Clear expectations before taking a case.</p></div>
+            <div><strong>Professionalism</strong><p>Specialized legal roles and controlled access.</p></div>
+            <div><strong>Innovation</strong><p>Digital workflows for intake, assignment, and notifications.</p></div>
+            <div><strong>Trust</strong><p>Confidential data flow and encrypted document storage.</p></div>
+            <div><strong>Transparency</strong><p>Visible case state, tasks, notes, and email job history.</p></div>
+            <div><strong>Business focus</strong><p>Legal operations designed for real clients, not classroom demos.</p></div>
+          </div>
+        </section>
+
+        <section id="company" class="site-section company-section">
+          <div>
+            <small>About</small>
+            <h2>From legal expertise to managed service delivery</h2>
+          </div>
+          <p>
+            POWER LAW positions itself around professional legal services, business-oriented thinking,
+            confidentiality, and reliable support for individuals, companies, and entrepreneurs. POWER LAW Digital
+            upgrades that model with role-based access, case lifecycle control, encrypted files, Redis-backed
+            email processing, and a frontend that demonstrates every major workflow.
+          </p>
+        </section>
+
+        <section id="consultation" class="public-grid">
+        <section class="surface auth-surface">
+          <div class="section-title">
+            <span id="auth">Workspace sign in</span>
+            <small id="authStatus">No active session</small>
+          </div>
+          <label>Email <input id="loginEmail" type="email" value="owner@example.invalid" autocomplete="username" /></label>
+          <label>Password <input id="loginPassword" type="password" value="OwnerPass123!" autocomplete="current-password" /></label>
+          <div class="button-row">
+            <button data-action="login">Sign in</button>
+            <button class="secondary" data-action="refreshSession">Refresh</button>
+          </div>
+        </section>
+
+        <section class="surface">
+          <div class="section-title">
+            <span>Account setup</span>
+          </div>
+          <div class="two-col">
+            <label>Full name <input id="registerName" placeholder="Full name" /></label>
+            <label>Email <input id="registerEmail" type="email" placeholder="director@example.invalid" /></label>
+          </div>
+          <label>Password <input id="registerPassword" type="password" placeholder="Strong password" /></label>
+          <div class="button-row">
+            <button data-action="registerDirector">Register director</button>
+            <button class="secondary" data-action="registerClient">Register client</button>
+          </div>
+          <div class="divider"></div>
+          <div class="two-col">
+            <label>Verification email <input id="verifyEmail" type="email" placeholder="user@example.invalid" /></label>
+            <label>Code <input id="verifyCode" inputmode="numeric" placeholder="123456" /></label>
+          </div>
+          <div class="button-row">
+            <button data-action="verifyEmail">Verify email</button>
+            <button class="secondary" data-action="resendVerification">Resend</button>
+          </div>
+        </section>
+
+        <section class="surface">
+          <div class="section-title">
+            <span>Password recovery</span>
+          </div>
+          <label>Email <input id="resetEmail" type="email" placeholder="user@example.invalid" /></label>
+          <div class="two-col">
+            <label>Code <input id="resetCode" inputmode="numeric" placeholder="123456" /></label>
+            <label>New password <input id="resetPassword" type="password" placeholder="New strong password" /></label>
+          </div>
+          <div class="button-row">
+            <button data-action="forgotPassword">Send code</button>
+            <button class="secondary" data-action="resetPassword">Reset</button>
+          </div>
+        </section>
+
+        <section class="surface inquiry-surface">
+          <div class="section-title">
+            <span>Request legal consultation</span>
+            <small id="publicInquiryStatus">Not submitted</small>
+          </div>
+          <div class="two-col">
+            <label>Client name <input id="clientName" placeholder="Client full name" /></label>
+            <label>Email <input id="clientEmail" type="email" placeholder="client@example.invalid" /></label>
+          </div>
+          <div class="two-col">
+            <label>Phone <input id="clientPhone" placeholder="+70000000000" /></label>
+            <label>Category
+              <select id="category">
+                <option value="labor">Labor</option>
+                <option value="family">Family</option>
+                <option value="criminal">Criminal</option>
+                <option value="corporate">Corporate</option>
+                <option value="real_estate">Real estate</option>
+                <option value="ip">IP</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+          <label>Description
+            <textarea id="description" placeholder="Describe the legal issue in at least 50 characters"></textarea>
+          </label>
+          <div class="button-row">
+            <button data-action="submitInquiry">Submit inquiry</button>
+            <button class="secondary" data-action="resendOtp">Resend OTP</button>
+          </div>
+          <div class="two-col">
+            <label>Inquiry ID <input id="inquiryId" /></label>
+            <label>OTP <input id="otpCode" inputmode="numeric" placeholder="123456" /></label>
+          </div>
+          <button data-action="verifyInquiry">Verify inquiry</button>
+        </section>
+
+        <section id="contact" class="contact-band">
+          <div>
+            <small>Contact</small>
+            <strong>Republic of Kazakhstan, Almaty, Baribayev street 17</strong>
+          </div>
+          <a href="tel:+70000000000">+7 000 000 00 00</a>
+          <a href="mailto:contact@example.invalid">contact@example.invalid</a>
+          <label class="api-field">
+            API
+            <input id="apiBasePublic" type="text" />
+          </label>
+        </section>
+        </section>
+      </main>
+    </div>
+
+    <div id="appView" class="app-layout hidden">
+      <aside class="sidebar">
+        <div class="sidebar-brand">
+          <span>POWER LAW Digital</span>
+          <small id="sidebarRole">Not signed in</small>
+        </div>
+        <nav class="nav-list">
+          <button class="nav-item active" data-view="dashboard">Dashboard</button>
+          <button class="nav-item" data-view="inquiries">Inquiries</button>
+          <button class="nav-item" data-view="cases">Cases</button>
+          <button class="nav-item" data-view="staff">Staff</button>
+          <button class="nav-item" data-view="groups">Groups</button>
+          <button class="nav-item" data-view="jobs">Email jobs</button>
+          <button class="nav-item" data-view="account">Account</button>
+        </nav>
+        <a class="docs-link" href="/docs" target="_blank" rel="noreferrer">Swagger UI</a>
+      </aside>
+
+      <main class="workspace">
+        <header class="workspace-header">
+          <div>
+            <h1 id="pageTitle">Dashboard</h1>
+            <p id="pageSubtitle">Operational overview</p>
+          </div>
+          <div class="session-box">
+            <label class="api-field compact">
+              API
+              <input id="apiBaseApp" type="text" />
+            </label>
+            <div class="session-user">
+              <strong id="sessionName">Unknown user</strong>
+              <span id="sessionEmail">No email</span>
+            </div>
+            <button class="secondary" data-action="refreshSession">Refresh</button>
+            <button class="danger" data-action="logout">Logout</button>
+          </div>
+        </header>
+
+        <section id="alert" class="alert hidden"></section>
+
+        <section data-section="dashboard" class="view-section">
+          <div class="metric-grid">
+            <div class="metric"><span id="metricInquiries">0</span><small>Open inquiries</small></div>
+            <div class="metric"><span id="metricCases">0</span><small>Active cases</small></div>
+            <div class="metric"><span id="metricUsers">0</span><small>Active staff</small></div>
+            <div class="metric"><span id="metricJobs">0</span><small>Email jobs</small></div>
+          </div>
+          <div class="content-grid two">
+            <section class="surface">
+              <div class="section-title">
+                <span>Recent inquiries</span>
+                <button class="text-button" data-action="loadInquiries">Reload</button>
+              </div>
+              <div id="dashboardInquiries" class="list"></div>
+            </section>
+            <section class="surface">
+              <div class="section-title">
+                <span>Active case queue</span>
+                <button class="text-button" data-action="loadCases">Reload</button>
+              </div>
+              <div id="dashboardCases" class="list"></div>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="inquiries" class="view-section hidden">
+          <div class="toolbar">
+            <input id="inquirySearch" placeholder="Search name, email, phone" />
+            <select id="inquiryStatus">
+              <option value="">All statuses</option>
+              <option value="pending_verification">Pending verification</option>
+              <option value="verified">Verified</option>
+              <option value="assigned">Assigned</option>
+              <option value="closed">Closed</option>
+            </select>
+            <select id="inquiryCategory">
+              <option value="">All categories</option>
+              <option value="labor">Labor</option>
+              <option value="family">Family</option>
+              <option value="criminal">Criminal</option>
+              <option value="corporate">Corporate</option>
+              <option value="real_estate">Real estate</option>
+              <option value="ip">IP</option>
+              <option value="other">Other</option>
+            </select>
+            <button data-action="loadInquiries">Search</button>
+          </div>
+          <div class="content-grid split">
+            <section class="surface">
+              <div class="section-title"><span>Inquiry list</span><small id="inquiryCount">0 items</small></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Client</th><th>Category</th><th>Status</th><th>Created</th><th></th></tr></thead>
+                  <tbody id="inquiriesTable"></tbody>
+                </table>
+              </div>
+              <button id="loadMoreInquiries" class="secondary load-more hidden" data-action="loadMoreInquiries">Load more</button>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Assignment</span><small id="selectedInquiryLabel">No inquiry selected</small></div>
+              <div id="inquiryDetail" class="detail-box"></div>
+              <label>Lawyer
+                <select id="assignLawyerId"></select>
+              </label>
+              <label>Note <textarea id="assignNote" placeholder="Assignment note"></textarea></label>
+              <button data-action="assignInquiry">Assign lawyer</button>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="cases" class="view-section hidden">
+          <div class="toolbar">
+            <select id="caseFilterStatus">
+              <option value="">All case statuses</option>
+              <option value="active">Active</option>
+              <option value="ready_for_review">Ready for review</option>
+              <option value="completed">Completed</option>
+            </select>
+            <select id="caseFilterLawyer"></select>
+            <button data-action="loadCases">Load cases</button>
+          </div>
+          <div class="content-grid split">
+            <section class="surface">
+              <div class="section-title"><span>Case list</span><small id="caseCount">0 items</small></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Case</th><th>Client</th><th>Lawyer</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="casesTable"></tbody>
+                </table>
+              </div>
+              <button id="loadMoreCases" class="secondary load-more hidden" data-action="loadMoreCases">Load more</button>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Case detail</span><small id="selectedCaseLabel">No case selected</small></div>
+              <div id="caseDetail" class="detail-box"></div>
+              <div class="two-col">
+                <label>Status
+                  <select id="caseStatus">
+                    <option value="active">Active</option>
+                    <option value="ready_for_review">Ready for review</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </label>
+                <label>Reassign to
+                  <select id="reassignLawyerId"></select>
+                </label>
+              </div>
+              <label>Reassign reason <input id="reassignReason" placeholder="Reason" /></label>
+              <div class="button-row">
+                <button data-action="updateCaseStatus">Update status</button>
+                <button class="secondary" data-action="reassignCase">Reassign</button>
+              </div>
+            </section>
+          </div>
+
+          <div class="content-grid three">
+            <section class="surface">
+              <div class="section-title"><span>Tasks</span><button class="text-button" data-action="loadTasks">Reload</button></div>
+              <label>Title <input id="taskTitle" placeholder="Task title" /></label>
+              <div class="two-col">
+                <label>Priority
+                  <select id="taskPriority">
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                    <option value="high">High</option>
+                  </select>
+                </label>
+                <label>Status
+                  <select id="taskStatus">
+                    <option value="todo">Todo</option>
+                    <option value="in_progress">In progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                </label>
+              </div>
+              <label>Due date <input id="taskDueDate" type="datetime-local" /></label>
+              <div class="button-row">
+                <button data-action="createTask">Create task</button>
+                <button class="secondary" data-action="updateSelectedTask">Update selected</button>
+              </div>
+              <div id="tasksList" class="list"></div>
+              <button id="loadMoreTasks" class="secondary load-more hidden" data-action="loadMoreTasks">Load more</button>
+            </section>
+
+            <section class="surface">
+              <div class="section-title"><span>Documents</span><button class="text-button" data-action="loadDocuments">Reload</button></div>
+              <label>File <input id="documentFile" type="file" /></label>
+              <label>Description <input id="documentDescription" placeholder="Document description" /></label>
+              <button data-action="uploadDocument">Upload encrypted document</button>
+              <div id="documentsList" class="list"></div>
+              <button id="loadMoreDocuments" class="secondary load-more hidden" data-action="loadMoreDocuments">Load more</button>
+            </section>
+
+            <section class="surface">
+              <div class="section-title"><span>Notes</span><button class="text-button" data-action="loadNotes">Reload</button></div>
+              <label>Internal note <textarea id="noteBody" placeholder="Write an internal case note"></textarea></label>
+              <button data-action="createNote">Add note</button>
+              <div id="notesList" class="list"></div>
+              <button id="loadMoreNotes" class="secondary load-more hidden" data-action="loadMoreNotes">Load more</button>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="staff" class="view-section hidden">
+          <div class="content-grid split">
+            <section class="surface">
+              <div class="section-title"><span>Staff directory</span><button class="text-button" data-action="loadUsers">Reload</button></div>
+              <div class="toolbar inner">
+                <input id="userSearch" placeholder="Search staff" />
+                <select id="userRoleFilter">
+                  <option value="">All roles</option>
+                  <option value="owner">Owner</option>
+                  <option value="director">Director</option>
+                  <option value="senior_lawyer">Senior lawyer</option>
+                  <option value="lawyer">Lawyer</option>
+                  <option value="assistant">Assistant</option>
+                  <option value="auditor">Auditor</option>
+                  <option value="client">Client</option>
+                </select>
+                <button data-action="loadUsers">Search</button>
+              </div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="usersTable"></tbody>
+                </table>
+              </div>
+              <button id="loadMoreUsers" class="secondary load-more hidden" data-action="loadMoreUsers">Load more</button>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Create staff</span><small id="selectedUserLabel">No user selected</small></div>
+              <div class="two-col">
+                <label>Full name <input id="staffName" placeholder="Employee full name" /></label>
+                <label>Email <input id="staffEmail" type="email" placeholder="employee@example.invalid" /></label>
+              </div>
+              <div class="two-col">
+                <label>Phone <input id="staffPhone" placeholder="+70000000000" /></label>
+                <label>Role
+                  <select id="staffRole">
+                    <option value="lawyer">Lawyer</option>
+                    <option value="senior_lawyer">Senior lawyer</option>
+                    <option value="assistant">Assistant</option>
+                    <option value="auditor">Auditor</option>
+                    <option value="owner">Owner</option>
+                  </select>
+                </label>
+              </div>
+              <div class="button-row">
+                <button data-action="createStaff">Create staff</button>
+                <button class="secondary" data-action="makeDirector">Make director</button>
+                <button class="secondary" data-action="resetStaffPassword">Reset password</button>
+                <button class="danger" data-action="deactivateUser">Deactivate</button>
+              </div>
+              <div id="staffResult" class="detail-box"></div>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="groups" class="view-section hidden">
+          <div class="content-grid split">
+            <section class="surface">
+              <div class="section-title"><span>Groups</span><button class="text-button" data-action="loadGroups">Reload</button></div>
+              <div id="groupsList" class="list"></div>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Group management</span><small id="selectedGroupLabel">No group selected</small></div>
+              <div class="two-col">
+                <label>Name <input id="groupName" placeholder="Group name" /></label>
+                <label>Type
+                  <select id="groupType">
+                    <option value="legal_area">Legal area</option>
+                    <option value="branch">Branch</option>
+                    <option value="client_segment">Client segment</option>
+                    <option value="review">Review</option>
+                    <option value="custom">Custom</option>
+                  </select>
+                </label>
+              </div>
+              <button data-action="createGroup">Create group</button>
+              <div class="divider"></div>
+              <div class="two-col">
+                <label>User <select id="groupMemberUserId"></select></label>
+                <label>Case <select id="groupCaseId"></select></label>
+              </div>
+              <div class="button-row">
+                <button data-action="addGroupMember">Add member</button>
+                <button class="secondary" data-action="attachCaseToGroup">Attach case</button>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="jobs" class="view-section hidden">
+          <div class="toolbar">
+            <select id="jobStatus">
+              <option value="">All jobs</option>
+              <option value="queued">Queued</option>
+              <option value="processing">Processing</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+            </select>
+            <button data-action="loadEmailJobs">Load jobs</button>
+          </div>
+          <div class="content-grid split">
+            <section class="surface">
+              <div class="section-title"><span>Email queue</span><small id="jobCount">0 jobs</small></div>
+              <div class="table-wrap">
+                <table>
+                  <thead><tr><th>Status</th><th>To</th><th>Attempts</th><th>Created</th><th></th></tr></thead>
+                  <tbody id="jobsTable"></tbody>
+                </table>
+              </div>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Job detail</span><small id="selectedJobLabel">No job selected</small></div>
+              <pre id="jobDetail" class="json-box"></pre>
+            </section>
+          </div>
+        </section>
+
+        <section data-section="account" class="view-section hidden">
+          <div class="content-grid two">
+            <section class="surface">
+              <div class="section-title"><span>Profile</span><button class="text-button" data-action="loadProfile">Reload</button></div>
+              <div id="profileDetail" class="detail-box"></div>
+            </section>
+            <section class="surface">
+              <div class="section-title"><span>Password</span></div>
+              <label>Current password <input id="currentPassword" type="password" placeholder="current or temporary password" /></label>
+              <label>New password <input id="newPassword" type="password" placeholder="New strong password" /></label>
+              <button data-action="changeTemporaryPassword">Update password</button>
+            </section>
+          </div>
+        </section>
+
+        <section class="surface response-surface">
+          <div class="section-title">
+            <span>Last API response</span>
+            <button class="text-button" data-action="clearResponse">Clear</button>
+          </div>
+          <pre id="output" class="json-box">Ready.</pre>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>

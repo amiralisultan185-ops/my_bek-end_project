@@ -1,6 +1,6 @@
 openapi: "3.0.3"
 info:
-  title: LexLink API v3.0 — Юридическая платформа
+  title: POWER LAW Digital API v3.0 — Юридическая платформа
   description: |
     REST API для внутренней платформы управления юридическими делами.
 
@@ -32,7 +32,7 @@ info:
   version: "3.0.0"
 
 servers:
-  - url: https://api.lexlink.io/v1
+  - url: https://api.power-law-digital.example/v1
     description: Production
   - url: http://localhost:3001
     description: Local development
@@ -125,11 +125,11 @@ components:
           type: string
           format: email
           description: На этот адрес придёт OTP-код.
-          example: "ivanov@example.com"
+          example: "ivanov@example.invalid"
         phone:
           type: string
           maxLength: 30
-          example: "+7 (701) 234-56-78"
+          example: "+7 000 000 00 00"
         category:
           $ref: '#/components/schemas/InquiryCategory'
         description:
@@ -200,10 +200,10 @@ components:
           properties:
             email:
               type: string
-              example: "ivanov@example.com"
+              example: "ivanov@example.invalid"
             phone:
               type: string
-              example: "+7 (701) 234-56-78"
+              example: "+7 000 000 00 00"
             description:
               type: string
               example: "Меня незаконно уволили после 5 лет работы..."
@@ -223,7 +223,7 @@ components:
         email:
           type: string
           format: email
-          example: "director@law-firm.com"
+          example: "director@example.invalid"
         password:
           type: string
           example: "SecurePass!9"
@@ -261,11 +261,11 @@ components:
           $ref: '#/components/schemas/UserRole'
         email:
           type: string
-          example: "smirnova@law-firm.com"
+          example: "smirnova@example.invalid"
         phone:
           type: string
           nullable: true
-          example: "+7 (701) 555-00-11"
+          example: "+7 000 000 00 00"
         is_active:
           type: boolean
           example: true
@@ -283,14 +283,46 @@ components:
         email:
           type: string
           format: email
-          example: "petrov@law-firm.com"
+          example: "petrov@example.invalid"
         phone:
           type: string
           nullable: true
-          example: "+7 (701) 555-00-22"
+          example: "+7 000 000 00 00"
         role:
           type: string
           enum: [owner, senior_lawyer, lawyer, assistant, auditor]
+
+    UserCreateResponse:
+      type: object
+      required: [user, temp_password]
+      properties:
+        user:
+          $ref: '#/components/schemas/UserSummary'
+        temp_password:
+          type: string
+          example: "TempPass123!"
+
+    DirectorRegisterRequest:
+      type: object
+      required: [email, password, full_name]
+      properties:
+        email:
+          type: string
+          format: email
+          example: "director@example.invalid"
+        password:
+          type: string
+          minLength: 8
+          example: "SecurePass!9"
+        full_name:
+          type: string
+          minLength: 5
+          maxLength: 200
+          example: "Main Director"
+        phone:
+          type: string
+          nullable: true
+          example: "+70000000000"
 
     ClientRegisterRequest:
       type: object
@@ -299,7 +331,7 @@ components:
         email:
           type: string
           format: email
-          example: "client@example.com"
+          example: "client@example.invalid"
         password:
           type: string
           example: "Client123!"
@@ -311,7 +343,83 @@ components:
         phone:
           type: string
           nullable: true
-          example: "+77001112233"
+          example: "+70000000000"
+
+    GroupType:
+      type: string
+      enum: [legal_area, branch, client_segment, review, custom]
+
+    GroupCreate:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: "Family Law Team"
+        slug:
+          type: string
+          minLength: 2
+          maxLength: 120
+          example: "family-law-team"
+        type:
+          $ref: '#/components/schemas/GroupType'
+        description:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: "Team for family law cases."
+
+    GroupDetail:
+      type: object
+      required: [id, name, slug, type, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          example: "Family Law Team"
+        slug:
+          type: string
+          example: "family-law-team"
+        type:
+          $ref: '#/components/schemas/GroupType'
+        description:
+          type: string
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        _count:
+          type: object
+          properties:
+            members:
+              type: integer
+              example: 2
+            cases:
+              type: integer
+              example: 1
+
+    GroupMemberAdd:
+      type: object
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+
+    GroupCaseAdd:
+      type: object
+      required: [case_id]
+      properties:
+        case_id:
+          type: string
+          format: uuid
 
     EmailCodeRequest:
       type: object
@@ -320,7 +428,7 @@ components:
         email:
           type: string
           format: email
-          example: "client@example.com"
+          example: "client@example.invalid"
         code:
           type: string
           example: "123456"
@@ -332,7 +440,7 @@ components:
         email:
           type: string
           format: email
-          example: "client@example.com"
+          example: "client@example.invalid"
 
     PasswordResetConfirmRequest:
       type: object
@@ -341,7 +449,7 @@ components:
         email:
           type: string
           format: email
-          example: "client@example.com"
+          example: "client@example.invalid"
         code:
           type: string
           example: "123456"
@@ -533,6 +641,10 @@ components:
       type: object
       required: [id, filename, mime_type, file_size_bytes, created_at]
       properties:
+        case_id:
+          type: string
+          format: uuid
+          example: "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d"
         id:
           type: string
           format: uuid
@@ -540,20 +652,34 @@ components:
         filename:
           type: string
           example: "исковое_заявление_финал.pdf"
+        storage_key:
+          type: string
+          example: "cases/9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d/1715200000000-claim.pdf"
         mime_type:
           type: string
           example: "application/pdf"
         file_size_bytes:
           type: integer
           example: 245760
+        sha256_hash:
+          type: string
+          nullable: true
+          example: "b94d27b9934d3e08a52e52d7da7dabfade4f3d6f8b0f3f9d4f0c2c7a8f4f9c2d"
+        encryption_algorithm:
+          type: string
+          example: "AES-256-GCM"
+        encrypted:
+          type: boolean
+          example: true
         description:
           type: string
           nullable: true
           example: "Финальная версия иска"
         download_url:
           type: string
+          nullable: true
           description: Pre-signed S3 URL, действителен 15 минут.
-          example: "https://s3.amazonaws.com/lexlink/cases/..."
+          example: null
         uploader:
           $ref: '#/components/schemas/UserSummary'
         created_at:
@@ -684,7 +810,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Код подтверждения отправлен на ivanov@example.com"
+                    example: "Код подтверждения отправлен на ivanov@example.invalid"
                   inquiry_id:
                     type: string
                     format: uuid
@@ -790,7 +916,7 @@ paths:
                 properties:
                   message:
                     type: string
-                    example: "Новый код отправлен на ivanov@example.com"
+                    example: "Новый код отправлен на ivanov@example.invalid"
         "400":
           description: Заявка не в статусе pending_verification.
           content:
@@ -810,6 +936,32 @@ paths:
                 message: "Повторная отправка доступна через 45 секунд."
                 detail:
                   retry_after_seconds: 45
+
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Register the first director account
+      description: Creates the first director only when no owner/director exists. In normal seeded deployments, owner is created by seed and staff users are created through POST /users.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DirectorRegisterRequest'
+      responses:
+        "201":
+          description: Director account created and verification email queued.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserSummary'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/ValidationError'
 
   /auth/verify-email:
     post:
@@ -1414,7 +1566,7 @@ paths:
           $ref: '#/components/responses/Forbidden'
     post:
       tags: [Документы]
-      summary: Загрузить документ (PDF/DOCX/JPEG/PNG, макс. 20 МБ)
+      summary: Upload encrypted document binary into the database
       parameters:
         - name: case_id
           in: path
@@ -1422,24 +1574,30 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: X-Filename
+          in: header
+          required: true
+          schema:
+            type: string
+            maxLength: 255
+          example: "claim-draft.pdf"
+        - name: X-Description
+          in: header
+          required: false
+          schema:
+            type: string
+            maxLength: 500
+          example: "First claim draft for review."
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/octet-stream:
             schema:
-              type: object
-              required: [file]
-              properties:
-                file:
-                  type: string
-                  format: binary
-                description:
-                  type: string
-                  maxLength: 500
-                  example: "Решение суда первой инстанции"
+              type: string
+              format: binary
       responses:
         "201":
-          description: Документ загружен.
+          description: Document encrypted and stored in PostgreSQL.
           content:
             application/json:
               schema:
@@ -1450,6 +1608,43 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "422":
           $ref: '#/components/responses/ValidationError'
+
+  /cases/{case_id}/documents/{document_id}/download:
+    get:
+      tags: [Документы]
+      summary: Download and decrypt a stored document
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Decrypted binary file.
+          headers:
+            X-Content-SHA256:
+              schema:
+                type: string
+              description: SHA-256 hash of the original uploaded file.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
 
   /cases/{case_id}/notes:
     get:
@@ -1509,6 +1704,116 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         "403":
           $ref: '#/components/responses/Forbidden'
+
+  /groups:
+    get:
+      tags: [Groups]
+      summary: List staff/case access groups
+      parameters:
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/GroupType'
+      responses:
+        "200":
+          description: Groups list.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GroupDetail'
+                  pagination:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+    post:
+      tags: [Groups]
+      summary: Create a group
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCreate'
+      responses:
+        "201":
+          description: Group created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /groups/{group_id}/members:
+    post:
+      tags: [Groups]
+      summary: Add a user to a group
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupMemberAdd'
+      responses:
+        "201":
+          description: User added to group.
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/ValidationError'
+
+  /groups/{group_id}/cases:
+    post:
+      tags: [Groups]
+      summary: Attach a case to a group
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GroupCaseAdd'
+      responses:
+        "201":
+          description: Case attached to group.
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/ValidationError'
 
   /jobs/email:
     get:
@@ -1600,7 +1905,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserSummary'
+                $ref: '#/components/schemas/UserCreateResponse'
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":

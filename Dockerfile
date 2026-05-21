@@ -1,12 +1,14 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN PRISMA_SKIP_POSTINSTALL_GENERATE=true npm install --only=production && npm cache clean --force
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
+RUN apk add --no-cache python3 make g++
 COPY package*.json ./
 RUN npm install
 COPY prisma ./prisma/
@@ -36,4 +38,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=5 \
   CMD node -e "require('http').get('http://localhost:3001/health', (r) => r.statusCode === 200 ? process.exit(0) : process.exit(1))"
 
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && node src/server.js"]
+CMD ["sh", "-c", "./node_modules/.bin/prisma migrate deploy && npm run db:seed && node src/server.js"]

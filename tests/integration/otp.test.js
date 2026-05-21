@@ -9,8 +9,17 @@ describe('OTP Integration', () => {
   });
 
   beforeEach(async () => {
+    await prisma.caseGroup.deleteMany();
+    await prisma.caseHistory.deleteMany();
+    await prisma.task.deleteMany();
+    await prisma.document.deleteMany();
+    await prisma.caseNote.deleteMany();
+    await prisma.case.deleteMany();
     await prisma.inquiryOTP.deleteMany();
     await prisma.clientInquiry.deleteMany();
+    await prisma.auditLog.deleteMany();
+    await prisma.refreshToken.deleteMany();
+    await prisma.user.deleteMany();
     await redis.flushdb();
   });
 
@@ -23,8 +32,8 @@ describe('OTP Integration', () => {
     const inquiry = await prisma.clientInquiry.create({
       data: {
         full_name: 'Test Client',
-        email: 'test@example.com',
-        phone: '+77012345678',
+        email: 'test@example.invalid',
+        phone: '+70000000000',
         category: 'labor',
         description: 'This is a long enough legal inquiry description for the integration test case.',
       },

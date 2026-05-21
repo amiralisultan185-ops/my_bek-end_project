@@ -1,0 +1,2250 @@
+{
+  "info": {
+    "_postman_id": "8d7b1b2f-4d7f-4d57-a7f4-power-law-digital-local",
+    "name": "POWER LAW Digital API - Defense Ready",
+    "description": "Defense-ready Postman collection. Run top to bottom: Health, Owner login, create staff one by one, then inquiries/cases/groups/jobs. Before using: docker compose up -d postgres redis; npx prisma migrate deploy; npm run db:seed; npm run dev.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001"
+    },
+    {
+      "key": "accessToken",
+      "value": ""
+    },
+    {
+      "key": "refreshToken",
+      "value": ""
+    },
+    {
+      "key": "clientAccessToken",
+      "value": ""
+    },
+    {
+      "key": "clientRefreshToken",
+      "value": ""
+    },
+    {
+      "key": "ownerId",
+      "value": ""
+    },
+    {
+      "key": "directorCandidateId",
+      "value": ""
+    },
+    {
+      "key": "directorId",
+      "value": ""
+    },
+    {
+      "key": "seniorLawyerId",
+      "value": ""
+    },
+    {
+      "key": "lawyerId",
+      "value": ""
+    },
+    {
+      "key": "assistantId",
+      "value": ""
+    },
+    {
+      "key": "auditorId",
+      "value": ""
+    },
+    {
+      "key": "userId",
+      "value": ""
+    },
+    {
+      "key": "directorTempPassword",
+      "value": ""
+    },
+    {
+      "key": "seniorLawyerTempPassword",
+      "value": ""
+    },
+    {
+      "key": "lawyerTempPassword",
+      "value": ""
+    },
+    {
+      "key": "assistantTempPassword",
+      "value": ""
+    },
+    {
+      "key": "auditorTempPassword",
+      "value": ""
+    },
+    {
+      "key": "groupId",
+      "value": ""
+    },
+    {
+      "key": "inquiryId",
+      "value": ""
+    },
+    {
+      "key": "caseId",
+      "value": ""
+    },
+    {
+      "key": "taskId",
+      "value": ""
+    },
+    {
+      "key": "jobId",
+      "value": ""
+    },
+    {
+      "key": "emailCode",
+      "value": "123456"
+    },
+    {
+      "key": "documentId",
+      "value": ""
+    },
+    {
+      "key": "noteId",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "1. GET /health - Server status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "health"
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('server is healthy', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "pm.test('status is ok', function () { pm.expect(pm.response.json().status).to.eql('ok'); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "0. POST /auth/register - Register first director",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Demo Director\",\n  \"email\": \"director.demo@example.invalid\",\n  \"password\": \"Director123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('director registration attempted', function () { pm.expect([201,403,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.1 POST /auth/client/register - Register client account",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/client/register",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "client",
+                "register"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Demo Client\",\n  \"email\": \"client.account@example.invalid\",\n  \"password\": \"Client123!\",\n  \"phone\": \"+70000000000\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('client registration attempted', function () { pm.expect([201,409,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); pm.collectionVariables.set('clientUserId', json.user.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1. POST /auth/login - Owner login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"owner@example.invalid\",\n  \"password\": \"OwnerPass123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('owner logged in', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collectionVariables.set('accessToken', json.access_token);",
+                  "pm.collectionVariables.set('refreshToken', json.refresh_token);",
+                  "pm.collectionVariables.set('ownerId', json.user.id);",
+                  "pm.expect(json.user.role).to.eql('owner');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. POST /auth/login - Director login with temp password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"director@example.invalid\",\n  \"password\": \"{{directorTempPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('director login request finished', function () { pm.expect([200,403]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); pm.collectionVariables.set('accessToken', json.access_token); pm.collectionVariables.set('refreshToken', json.refresh_token); pm.collectionVariables.set('directorId', json.user.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /auth/login - Lawyer login with temp password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "login"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\",\n  \"password\": \"{{lawyerTempPassword}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('lawyer login request finished', function () { pm.expect([200,403]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 200) { const json = pm.response.json(); pm.collectionVariables.set('accessToken', json.access_token); pm.collectionVariables.set('refreshToken', json.refresh_token); pm.collectionVariables.set('userId', json.user.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. POST /auth/refresh - Rotate refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/refresh",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "refresh"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('token refreshed', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const json = pm.response.json(); pm.collectionVariables.set('accessToken', json.access_token); pm.collectionVariables.set('refreshToken', json.refresh_token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. POST /auth/logout - Revoke refresh token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "logout"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh_token\": \"{{refreshToken}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('logged out', function () { pm.expect(pm.response.code).to.eql(204); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. POST /auth/resend-verification - Staff email code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/resend-verification",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "resend-verification"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('verification email requested', function () { pm.expect([200,404,429]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. POST /auth/verify-email - Enter staff code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/verify-email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "verify-email"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\",\n  \"code\": \"{{emailCode}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('verification attempted', function () { pm.expect([200,400,410,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. POST /auth/password/forgot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/forgot",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password",
+                "forgot"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password reset requested', function () { pm.expect([200,404,429]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. POST /auth/password/reset",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/password/reset",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "auth",
+                "password",
+                "reset"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\",\n  \"code\": \"{{emailCode}}\",\n  \"new_password\": \"NewLawyer123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password reset attempted', function () { pm.expect([204,400,410,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Staff Registration - One by One",
+      "item": [
+        {
+          "name": "1. POST /users - Create director candidate (lawyer first)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"director@example.invalid\",\n  \"full_name\": \"Main Director\",\n  \"phone\": \"+70000000000\",\n  \"role\": \"lawyer\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('staff created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');",
+                  "pm.expect(json.temp_password).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('directorCandidateId', json.user.id);",
+                  "pm.collectionVariables.set('directorTempPassword', json.temp_password);",
+                  "pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. PATCH /users/:id/make-director - Promote candidate",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{directorCandidateId}}/make-director",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{directorCandidateId}}",
+                "make-director"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('candidate promoted', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const json = pm.response.json(); pm.expect(json.role).to.eql('director'); pm.collectionVariables.set('directorId', json.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /users - Create senior lawyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"senior@example.invalid\",\n  \"full_name\": \"Senior Lawyer\",\n  \"phone\": \"+70000000000\",\n  \"role\": \"senior_lawyer\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('staff created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');",
+                  "pm.expect(json.temp_password).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('seniorLawyerId', json.user.id);",
+                  "pm.collectionVariables.set('seniorLawyerTempPassword', json.temp_password);",
+                  "pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. POST /users - Create lawyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"lawyer@example.invalid\",\n  \"full_name\": \"Regular Lawyer\",\n  \"phone\": \"+70000000000\",\n  \"role\": \"lawyer\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('staff created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');",
+                  "pm.expect(json.temp_password).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('lawyerId', json.user.id);",
+                  "pm.collectionVariables.set('lawyerTempPassword', json.temp_password);",
+                  "pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. POST /users - Create assistant",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"assistant@example.invalid\",\n  \"full_name\": \"Legal Assistant\",\n  \"phone\": \"+70000000000\",\n  \"role\": \"assistant\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('staff created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');",
+                  "pm.expect(json.temp_password).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('assistantId', json.user.id);",
+                  "pm.collectionVariables.set('assistantTempPassword', json.temp_password);",
+                  "pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. POST /users - Create auditor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"auditor@example.invalid\",\n  \"full_name\": \"Case Auditor\",\n  \"phone\": \"+70000000000\",\n  \"role\": \"auditor\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('staff created', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json();",
+                  "pm.expect(json.user.id).to.be.a('string');",
+                  "pm.expect(json.temp_password).to.be.a('string').and.not.empty;",
+                  "pm.collectionVariables.set('auditorId', json.user.id);",
+                  "pm.collectionVariables.set('auditorTempPassword', json.temp_password);",
+                  "pm.collectionVariables.set('userId', json.user.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "1. GET /users/me - Current profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('profile returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. PATCH /users/me - Change temporary password",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/users/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "me"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"current_password\": \"{{lawyerTempPassword}}\",\n  \"new_password\": \"NewLawyer123!\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password/profile updated', function () { pm.expect([200,400,401,403]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. GET /users/all - All users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/all?limit=50",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "all"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "50"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('users list returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. GET /users - Workload dashboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('workload returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. PATCH /users/:id/reset-password",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{lawyerId}}/reset-password",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{lawyerId}}",
+                "reset-password"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('password reset by manager', function () { pm.expect(pm.response.code).to.eql(200); });",
+                  "const json = pm.response.json(); pm.collectionVariables.set('lawyerTempPassword', json.temp_password);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. PATCH /users/:id/deactivate",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/users/{{assistantId}}/deactivate",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "users",
+                "{{assistantId}}",
+                "deactivate"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('deactivation attempted', function () { pm.expect([200,404,409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Public Submit",
+      "item": [
+        {
+          "name": "1. POST /submit - Public client inquiry",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/submit",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "submit"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"full_name\": \"Public Client\",\n  \"email\": \"public.client@example.invalid\",\n  \"phone\": \"+70000000000\",\n  \"category\": \"family\",\n  \"description\": \"I need legal help with a family law matter and would like to receive a consultation from the firm.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('inquiry submitted', function () { pm.expect(pm.response.code).to.eql(201); });",
+                  "const json = pm.response.json(); pm.collectionVariables.set('inquiryId', json.inquiry_id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. POST /submit/verify - Enter OTP code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/submit/verify",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "submit",
+                "verify"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inquiry_id\": \"{{inquiryId}}\",\n  \"code\": \"{{emailCode}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OTP verification attempted', function () { pm.expect([200,400,410,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /submit/resend - Resend OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/submit/resend",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "submit",
+                "resend"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"inquiry_id\": \"{{inquiryId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('OTP resend attempted', function () { pm.expect([200,404,409,429]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Inquiries",
+      "item": [
+        {
+          "name": "1. GET /inquiries - List verified inquiries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inquiries?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inquiries"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('inquiries returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. GET /inquiries/:id - Inquiry details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/inquiries/{{inquiryId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inquiries",
+                "{{inquiryId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('inquiry details attempted', function () { pm.expect([200,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /inquiries/:id/assign - Assign lawyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/inquiries/{{inquiryId}}/assign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "inquiries",
+                "{{inquiryId}}",
+                "assign"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lawyer_id\": \"{{lawyerId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('assignment attempted', function () { pm.expect([201,400,404,409,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); pm.collectionVariables.set('caseId', json.case_id); }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cases",
+      "item": [
+        {
+          "name": "1. GET /cases - List cases",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('cases returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. GET /cases/:id - Case details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('case details attempted', function () { pm.expect([200,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. PATCH /cases/:id/status - Mark ready for review",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/status",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "status"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"ready_for_review\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('status update attempted', function () { pm.expect([200,400,404,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. PATCH /cases/:id/reassign - Reassign lawyer",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/reassign",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "reassign"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"lawyer_id\": \"{{seniorLawyerId}}\",\n  \"reason\": \"Balancing workload for demonstration.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('reassign attempted', function () { pm.expect([200,400,404,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. POST /cases/:id/tasks - Create task",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/tasks",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "tasks"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Prepare claim draft\",\n  \"description\": \"Prepare the first claim draft and collect supporting documents.\",\n  \"priority\": \"high\",\n  \"due_date\": \"2026-06-01T09:00:00.000Z\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('task create attempted', function () { pm.expect([201,400,403,404,409,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) pm.collectionVariables.set('taskId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. GET /cases/:id/tasks - List tasks",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/tasks?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "tasks"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('tasks list attempted', function () { pm.expect([200,403,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "7. PATCH /cases/:id/tasks/:task_id - Update task",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"in_progress\",\n  \"priority\": \"medium\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('task update attempted', function () { pm.expect([200,400,403,404,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. POST /cases/:id/documents - Upload encrypted file to DB",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/octet-stream"
+              },
+              {
+                "key": "X-Filename",
+                "value": "claim-draft.pdf"
+              },
+              {
+                "key": "X-Description",
+                "value": "First claim draft for review."
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/documents",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "documents"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "file",
+              "file": {
+                "src": ""
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('encrypted document upload attempted', function () { pm.expect([201,400,403,404,409,413,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) { const json = pm.response.json(); pm.collectionVariables.set('documentId', json.id); pm.expect(json.sha256_hash).to.have.length(64); pm.expect(json.encrypted).to.eql(true); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "9. GET /cases/:id/documents - List documents",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/documents?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "documents"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('documents list attempted', function () { pm.expect([200,403,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. GET /cases/:id/documents/:document_id/download - Download decrypted file",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/documents/{{documentId}}/download",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "documents",
+                "{{documentId}}",
+                "download"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('document download attempted', function () { pm.expect([200,403,404,409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. POST /cases/:id/notes - Add internal note",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/notes",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "notes"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"body\": \"Client confirmed the timeline and sent supporting details.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('note create attempted', function () { pm.expect([201,400,403,404,409,422]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) pm.collectionVariables.set('noteId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. GET /cases/:id/notes - List notes",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/notes?limit=20",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "notes"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "20"
+                }
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('notes list attempted', function () { pm.expect([200,403,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. DELETE /cases/:id/tasks/:task_id - Delete TODO task",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cases/{{caseId}}/tasks/{{taskId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cases",
+                "{{caseId}}",
+                "tasks",
+                "{{taskId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('task delete attempted', function () { pm.expect([204,403,404,409]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Groups",
+      "item": [
+        {
+          "name": "1. POST /groups - Create legal group",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Family Law Team\",\n  \"slug\": \"family-law-team\",\n  \"type\": \"legal_area\",\n  \"description\": \"Team for family law cases.\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('group created', function () { pm.expect([201,409]).to.include(pm.response.code); });",
+                  "if (pm.response.code === 201) pm.collectionVariables.set('groupId', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. GET /groups - List groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/groups",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('groups returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3. POST /groups/:id/members - Add lawyer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/members",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "members"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{lawyerId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('member add attempted', function () { pm.expect([201,404,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. POST /groups/:id/cases - Attach case",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/groups/{{groupId}}/cases",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "groups",
+                "{{groupId}}",
+                "cases"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"case_id\": \"{{caseId}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('case attach attempted', function () { pm.expect([201,404,409,422]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "1. GET /jobs/email - Email queue status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/email",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "email"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('email jobs returned', function () { pm.expect(pm.response.code).to.eql(200); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. GET /jobs/email/:job_id - Email job details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/jobs/email/{{jobId}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "jobs",
+                "email",
+                "{{jobId}}"
+              ]
+            },
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{accessToken}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('job details attempted', function () { pm.expect([200,404]).to.include(pm.response.code); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
