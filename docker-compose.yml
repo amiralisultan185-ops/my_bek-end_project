@@ -66,11 +66,13 @@ services:
 
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: frontend/Dockerfile
     container_name: lexlink-frontend
     ports:
       - "${FRONTEND_PORT:-5173}:80"
+    environment:
+      API_PROXY_PASS: ${API_PROXY_PASS:-http://app:3001/}
     depends_on:
       app:
         condition: service_healthy
