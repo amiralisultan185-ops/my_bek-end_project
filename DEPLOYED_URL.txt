@@ -1,4 +1,1 @@
-TODO: Paste the final deployed frontend URL here after DeployRocks/Render/Vercel deployment.
-
-Example:
-https://your-power-law-digital-app.deployrocks.com
+https://power-law-frontend.onrender.com
