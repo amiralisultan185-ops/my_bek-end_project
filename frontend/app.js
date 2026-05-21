@@ -72,8 +72,9 @@ function isLocalHostname(hostname) {
 }
 
 function defaultApiBase() {
-  if (window.location.hostname === 'power-law-frontend.onrender.com') {
-    return 'https://power-law-backend.onrender.com';
+  const configuredApiBase = window.POWER_LAW_CONFIG?.apiBaseUrl?.trim();
+  if (configuredApiBase) {
+    return configuredApiBase.replace(/\/$/, '');
   }
   if (window.location.protocol.startsWith('http') && window.location.port !== '3001') {
     return `${window.location.origin}/api`;
@@ -91,7 +92,7 @@ function initialApiBase() {
     if (!isLocalHostname(window.location.hostname) && isLocalHostname(storedUrl.hostname)) {
       return fallback;
     }
-    if (window.location.hostname === 'power-law-frontend.onrender.com' && storedUrl.hostname === window.location.hostname) {
+    if (fallback && storedUrl.hostname === window.location.hostname && !fallback.includes(window.location.hostname)) {
       return fallback;
     }
     return stored.replace(/\/$/, '');

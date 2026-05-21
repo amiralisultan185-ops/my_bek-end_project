@@ -1,14 +1,14 @@
 # Stage 1: Dependencies
 FROM node:20-alpine AS deps
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ openssl openssl-dev
 COPY package*.json ./
 RUN PRISMA_SKIP_POSTINSTALL_GENERATE=true npm install --only=production && npm cache clean --force
 
 # Stage 2: Builder
 FROM node:20-alpine AS builder
 WORKDIR /app
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ openssl openssl-dev
 COPY package*.json ./
 RUN npm install
 COPY prisma ./prisma/

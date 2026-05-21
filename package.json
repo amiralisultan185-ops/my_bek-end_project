@@ -1,7 +1,7 @@
 {
   "name": "power-law-digital-api",
   "version": "1.0.0",
-  "description": "POWER LAW Digital Legal Platform API — Node.js/Express/Prisma",
+  "description": "POWER LAW Digital Legal Platform API - Node.js/Express/Prisma",
   "main": "src/server.js",
     "scripts": {
         "start": "node src/server.js",

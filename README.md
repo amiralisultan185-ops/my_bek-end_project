@@ -226,6 +226,13 @@ The frontend application is in `frontend/`. It calls the real backend API and co
 - Groups and email job visibility
 
 When running through Docker Compose, the frontend proxies `/api/*` to the backend service.
+For split deployments such as Render frontend + Render backend, set the frontend environment variable:
+
+```env
+API_BASE_URL=https://power-law-backend.onrender.com
+```
+
+When `API_BASE_URL` is set, the browser calls the backend directly instead of using the frontend `/api` proxy.
 
 ## Figma Design
 
@@ -258,6 +265,26 @@ Preferred platform: DeployRocks.
 10. Save the final public URL in `DEPLOYED_URL.txt`.
 
 If DeployRocks is unavailable, deploy the same Docker Compose stack on Render, Railway, Fly.io, or another provider that supports containers and managed PostgreSQL/Redis.
+
+### Render split-service deployment
+
+For the backend Web Service, configure the production variables from `.env.example`, including real `DATABASE_URL`, `REDIS_URL`, JWT secrets, SMTP credentials, `DOCUMENT_ENCRYPTION_KEY`, and:
+
+```env
+CORS_ORIGINS=https://power-law-frontend.onrender.com,https://power-law-backend.onrender.com
+ALLOWED_ORIGINS=https://power-law-frontend.onrender.com,https://power-law-backend.onrender.com
+PUBLIC_APP_URL=https://power-law-backend.onrender.com
+```
+
+For the frontend Web Service:
+
+```env
+API_BASE_URL=https://power-law-backend.onrender.com
+API_PROXY_PASS=https://power-law-backend.onrender.com/
+API_PROXY_HOST=power-law-backend.onrender.com
+```
+
+`API_BASE_URL` is the important setting for browser API calls. `API_PROXY_PASS` and `API_PROXY_HOST` keep `/api/*` available as a fallback.
 
 ## Submission Files
 

@@ -52,7 +52,7 @@ app.use('/jobs', jobRoutes);
 
 // 404
 app.use((req, res) => {
-  res.status(404).json({ error: 'not_found', message: 'Эндпоинт не найден' });
+  res.status(404).json({ error: 'not_found', message: 'Endpoint not found' });
 });
 
 // Error handler
