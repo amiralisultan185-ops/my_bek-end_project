@@ -5,15 +5,17 @@ function errorHandler(err, req, res, next) {
     return next(err);
   }
 
+  console.error(`[${req.method} ${req.originalUrl}]`, err.stack || err.message || err);
+
   let statusCode = err.statusCode || err.status || 500;
   let errorCode = err.code || 'internal_error';
-  let message = err.message || 'Внутренняя ошибка сервера';
+  let message = err.message || 'Internal server error';
   let detail = err.detail || null;
 
   if (err.name === 'ZodError') {
     statusCode = 422;
     errorCode = 'validation_error';
-    message = 'Ошибка валидации';
+    message = 'Validation error';
     detail = err.errors.reduce((acc, e) => {
       const path = e.path.join('.');
       acc[path] = e.message;
@@ -25,22 +27,22 @@ function errorHandler(err, req, res, next) {
     if (err.code === 'P2002') {
       statusCode = 409;
       errorCode = 'conflict';
-      message = 'Ресурс уже существует';
+      message = 'Resource already exists';
     } else if (err.code === 'P2025') {
       statusCode = 404;
       errorCode = 'not_found';
-      message = 'Ресурс не найден';
+      message = 'Resource not found';
     } else if (err.code === 'P2003') {
       statusCode = 409;
       errorCode = 'conflict';
-      message = 'Нарушение ограничения внешнего ключа';
+      message = 'Foreign key constraint violation';
     }
   }
 
   if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
     statusCode = 401;
     errorCode = 'unauthorized';
-    message = 'Недействительный или просроченный токен';
+    message = 'Invalid or expired token';
   }
 
   const response = {

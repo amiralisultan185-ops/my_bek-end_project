@@ -24,12 +24,16 @@ async function main() {
       data: {
         email,
         full_name: fullName,
+        hashed_password: await hashPassword(password),
+        is_active: true,
+        must_change_password: false,
         email_verified_at: existingOwner.email_verified_at || new Date(),
       },
       select: { email: true, role: true },
     });
     console.log('Owner already exists:', updatedOwner.email);
     console.log('Role:', updatedOwner.role);
+    console.log('Password reset to OWNER_PASSWORD value');
     await prisma.$disconnect();
     return;
   }
