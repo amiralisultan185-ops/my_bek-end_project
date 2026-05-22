@@ -1,1 +1,2 @@
 https://power-law-frontend.onrender.com
+https://power-law-backend.onrender.com/health
