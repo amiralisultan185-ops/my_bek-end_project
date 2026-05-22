@@ -2,7 +2,7 @@ const { v4: uuidv4 } = require('uuid');
 const redis = require('../utils/redis');
 
 const QUEUE_KEY = redis.key('jobs:email:queue');
-const JOB_KEY_PREFIX = 'jobs:email';
+const JOB_KEY_PREFIX = 'jobs:email:job';
 
 function jobKey(jobId) {
   return redis.key(`${JOB_KEY_PREFIX}:${jobId}`);
@@ -51,10 +51,14 @@ async function listEmailJobs({ status, limit = 25 } = {}) {
   const jobs = [];
 
   for (const key of keys) {
-    const raw = await redis.get(key);
-    if (!raw) continue;
-    const job = JSON.parse(raw);
-    if (!status || job.status === status) jobs.push(job);
+    try {
+      const raw = await redis.get(key);
+      if (!raw) continue;
+      const job = JSON.parse(raw);
+      if (!status || job.status === status) jobs.push(job);
+    } catch (err) {
+      console.error(`Skipping unreadable email job key ${key}:`, err.message);
+    }
   }
 
   return jobs
