@@ -1,11 +1,11 @@
 const { v4: uuidv4 } = require('uuid');
 const redis = require('../utils/redis');
 
-const QUEUE_KEY = 'jobs:email:queue';
+const QUEUE_KEY = redis.key('jobs:email:queue');
 const JOB_KEY_PREFIX = 'jobs:email';
 
 function jobKey(jobId) {
-  return `${JOB_KEY_PREFIX}:${jobId}`;
+  return redis.key(`${JOB_KEY_PREFIX}:${jobId}`);
 }
 
 async function enqueueEmailJob(payload) {
@@ -43,7 +43,7 @@ async function listEmailJobs({ status, limit = 25 } = {}) {
   const keys = [];
   let cursor = '0';
   do {
-    const result = await redis.scan(cursor, 'MATCH', `${JOB_KEY_PREFIX}:*`, 'COUNT', 100);
+    const result = await redis.scan(cursor, 'MATCH', redis.key(`${JOB_KEY_PREFIX}:*`), 'COUNT', 100);
     cursor = result[0];
     keys.push(...result[1]);
   } while (cursor !== '0');

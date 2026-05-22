@@ -19,6 +19,7 @@ services:
 
       DATABASE_URL: postgresql://lexlink:lexlink@postgres:5432/lexlink?schema=public
       REDIS_URL: redis://redis:6379/0
+      REDIS_KEY_PREFIX: ${REDIS_KEY_PREFIX:-power-law-digital}
 
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-jwt-secret-key-min-32-chars}
       JWT_REFRESH_SECRET_KEY: ${JWT_REFRESH_SECRET_KEY:-change-me-refresh-secret-key-min-32-chars}

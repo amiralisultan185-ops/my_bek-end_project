@@ -12,13 +12,13 @@ function hashCode(code) {
 
 async function createCode({ purpose, userId, ttlMinutes }) {
   const code = generateCode();
-  const key = `auth-code:${purpose}:${userId}`;
+  const key = redis.key(`auth-code:${purpose}:${userId}`);
   await redis.setex(key, ttlMinutes * 60, hashCode(code));
   return code;
 }
 
 async function verifyCode({ purpose, userId, code }) {
-  const key = `auth-code:${purpose}:${userId}`;
+  const key = redis.key(`auth-code:${purpose}:${userId}`);
   const expectedHash = await redis.get(key);
   if (!expectedHash || expectedHash !== hashCode(code)) {
     const err = new Error('Invalid or expired code');

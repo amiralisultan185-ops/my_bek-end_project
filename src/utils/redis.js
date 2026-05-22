@@ -14,4 +14,8 @@ redis.on('connect', () => {
   console.log('Redis connected');
 });
 
+redis.key = function key(name) {
+  return config.redisKeyPrefix ? `${config.redisKeyPrefix}:${name}` : name;
+};
+
 module.exports = redis;

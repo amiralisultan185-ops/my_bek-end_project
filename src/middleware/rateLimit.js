@@ -10,7 +10,8 @@ function getClientIp(req) {
 function createRateLimiter({ keyPrefix, maxRequests, windowSeconds, keyGenerator }) {
   return async (req, res, next) => {
     try {
-      const key = keyGenerator ? keyGenerator(req) : `${keyPrefix}:${getClientIp(req)}`;
+      const rawKey = keyGenerator ? keyGenerator(req) : `${keyPrefix}:${getClientIp(req)}`;
+      const key = redis.key(rawKey);
       const current = await redis.incr(key);
       if (current === 1) {
         await redis.expire(key, windowSeconds);

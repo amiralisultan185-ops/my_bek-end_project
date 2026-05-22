@@ -106,7 +106,7 @@ async function verifyOTP(inquiryId, code) {
 }
 
 async function resendOTP(inquiryId) {
-  const cooldownKey = `otp:resend:${inquiryId}`;
+  const cooldownKey = redis.key(`otp:resend:${inquiryId}`);
   const exists = await redis.get(cooldownKey);
   if (exists) {
     const ttl = await redis.ttl(cooldownKey);

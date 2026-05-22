@@ -54,6 +54,7 @@ const config = {
 
   databaseUrl: requireEnv('DATABASE_URL'),
   redisUrl: requireEnv('REDIS_URL', 'redis://localhost:6379/0'),
+  redisKeyPrefix: requireEnv('REDIS_KEY_PREFIX', 'power-law-digital'),
 
   jwtAlgorithm: requireEnv('JWT_ALGORITHM', 'HS256'),
   accessTokenExpireMinutes: requireNumber('ACCESS_TOKEN_EXPIRE_MINUTES', '60'),
