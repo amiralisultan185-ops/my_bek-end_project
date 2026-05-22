@@ -55,6 +55,10 @@ async function verifyInquiryOTP(inquiryId, code, req) {
   return inquiry;
 }
 
+async function resendInquiryOTP(inquiryId) {
+  return otpService.resendOTP(inquiryId);
+}
+
 async function listInquiries({ cursor, limit, status, category, q }) {
   const take = Math.min(limit || 20, 100);
   const where = {};
@@ -203,6 +207,7 @@ async function assignLawyer(inquiryId, lawyerId, assignedById, note) {
 module.exports = {
   createInquiry,
   verifyInquiryOTP,
+  resendOTP: resendInquiryOTP,
   listInquiries,
   getInquiryDetail,
   assignLawyer,
